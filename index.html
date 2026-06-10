@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Tatkal Guardian</title>
+<style>
+/* ── RESET & TOKENS ─────────────────────────────── */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0d1117; --card:#161b22; --border:#30363d;
+  --green:#3fb950; --yellow:#d29922; --red:#f85149; --blue:#58a6ff;
+  --text:#e6edf3; --muted:#8b949e;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden;}
+
+/* ── LANDING ─────────────────────────────── */
+#landing{min-height:100vh;display:flex;flex-direction:column;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 4rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(13,17,23,0.95);backdrop-filter:blur(8px);z-index:100;}
+.nav-logo{display:flex;align-items:center;gap:10px;font-size:1.1rem;font-weight:600;}
+.shield-icon{width:32px;height:32px;background:linear-gradient(135deg,#1f6feb,#388bfd);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.nav-links{display:flex;gap:2rem;list-style:none;font-size:.9rem;}
+.nav-links a{color:var(--muted);text-decoration:none;transition:color .2s;}
+.nav-links a:hover{color:var(--text);}
+.nav-cta{display:flex;gap:12px;}
+.btn-ghost{padding:.45rem 1.1rem;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);font-size:.88rem;cursor:pointer;transition:all .2s;}
+.btn-ghost:hover{background:var(--card);}
+.btn-primary{padding:.45rem 1.1rem;border:none;border-radius:6px;background:var(--blue);color:#0d1117;font-size:.88rem;font-weight:600;cursor:pointer;transition:all .2s;}
+.btn-primary:hover{background:#79c0ff;}
+
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6rem 2rem 4rem;position:relative;}
+.hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse at top,#1f6feb18 0%,transparent 70%);pointer-events:none;}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;padding:.3rem .9rem;border:1px solid #1f6feb55;border-radius:20px;font-size:.78rem;color:var(--blue);margin-bottom:1.8rem;background:#1f6feb11;}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.hero h1{font-size:clamp(2.4rem,5vw,3.8rem);font-weight:700;line-height:1.1;letter-spacing:-.03em;margin-bottom:1.4rem;max-width:800px;}
+.hero h1 span{color:var(--blue);}
+.hero p{font-size:1.1rem;color:var(--muted);max-width:560px;line-height:1.7;margin-bottom:2.5rem;}
+.hero-btns{display:flex;gap:14px;margin-bottom:4rem;}
+.btn-big{padding:.75rem 1.8rem;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .2s;}
+.btn-big.primary{background:var(--blue);color:#0d1117;border:none;}
+.btn-big.primary:hover{background:#79c0ff;transform:translateY(-1px);}
+.btn-big.secondary{background:transparent;color:var(--text);border:1px solid var(--border);}
+.btn-big.secondary:hover{background:var(--card);transform:translateY(-1px);}
+
+.stats-row{display:flex;gap:3rem;justify-content:center;margin-bottom:5rem;flex-wrap:wrap;}
+.stat-item{text-align:center;}
+.stat-num{font-size:2rem;font-weight:700;}
+.stat-num span{color:var(--green);}
+.stat-label{font-size:.8rem;color:var(--muted);margin-top:2px;max-width:180px;}
+
+.features{padding:4rem;display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem;max-width:1100px;margin:0 auto;width:100%;}
+.feat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;transition:border-color .2s;}
+.feat-card:hover{border-color:#58a6ff44;}
+.feat-icon{font-size:1.5rem;margin-bottom:.8rem;}
+.feat-card h3{font-size:.95rem;font-weight:600;margin-bottom:.5rem;}
+.feat-card p{font-size:.83rem;color:var(--muted);line-height:1.6;}
+
+.evidence{margin:3rem auto;max-width:900px;padding:0 4rem;width:100%;}
+.evidence h2{font-size:.75rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1.2rem;text-align:center;}
+.evidence-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.8rem;}
+.evidence-item{display:flex;align-items:flex-start;gap:10px;padding:1rem;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:.83rem;color:var(--muted);}
+.evidence-item::before{content:'→';color:var(--blue);flex-shrink:0;margin-top:1px;}
+.land-footer{text-align:center;padding:2rem;color:var(--muted);font-size:.8rem;border-top:1px solid var(--border);margin-top:4rem;}
+
+/* ── LOGIN MODAL ─────────────────────────────── */
+#modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;}
+#modal-overlay.active{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2.2rem;width:400px;position:relative;animation:modalIn .2s ease;}
+@keyframes modalIn{from{opacity:0;transform:translateY(-12px) scale(.97)}to{opacity:1;transform:none}}
+.modal-close{position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:4px;transition:background .15s;}
+.modal-close:hover{background:#ffffff11;color:var(--text);}
+.modal-logo{display:flex;align-items:center;gap:8px;margin-bottom:1.6rem;}
+.modal-logo span{font-size:.95rem;font-weight:600;}
+.modal h2{font-size:1.3rem;font-weight:600;margin-bottom:.4rem;}
+.modal .subtitle{font-size:.85rem;color:var(--muted);margin-bottom:1.8rem;}
+.demo-banner{background:#1f6feb18;border:1px solid #1f6feb44;border-radius:8px;padding:.8rem 1rem;margin-bottom:1.5rem;font-size:.8rem;color:var(--blue);}
+.demo-banner strong{display:block;margin-bottom:4px;color:#79c0ff;}
+.demo-creds{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;}
+.cred-chip{background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;transition:border-color .15s;}
+.cred-chip:hover{border-color:var(--blue);}
+.cred-chip .role{font-size:.7rem;color:var(--muted);}
+.cred-chip .cred{font-size:.78rem;color:var(--text);font-family:monospace;}
+.form-group{margin-bottom:1rem;}
+.form-group label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:.4rem;}
+.form-group input{width:100%;padding:.6rem .85rem;background:#0d1117;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;outline:none;transition:border-color .2s;}
+.form-group input:focus{border-color:var(--blue);}
+.error-msg{font-size:.8rem;color:var(--red);margin-bottom:.8rem;display:none;padding:.5rem .75rem;background:#f8514911;border-radius:6px;border:1px solid #f8514933;}
+.error-msg.show{display:block;}
+.btn-login{width:100%;padding:.7rem;background:var(--blue);color:#0d1117;border:none;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .2s;margin-top:.5rem;}
+.btn-login:hover{background:#79c0ff;}
+.btn-login.loading{opacity:.7;cursor:not-allowed;}
+
+/* ── DASHBOARD ─────────────────────────────── */
+#dashboard{display:none;height:100vh;flex-direction:column;overflow:hidden;}
+#dashboard.active{display:flex;}
+
+/* topbar */
+.dash-top{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.5rem;background:rgba(13,17,23,.96);border-bottom:1px solid var(--border);flex-shrink:0;}
+.dash-title{display:flex;align-items:center;gap:10px;font-size:1rem;font-weight:700;}
+.live-badge{display:inline-flex;align-items:center;gap:7px;padding:4px 12px;border-radius:20px;font-size:.78rem;font-weight:700;}
+.live-badge.running{background:rgba(63,185,80,.1);color:var(--green);}
+.live-badge.stopped{background:rgba(139,148,158,.1);color:var(--muted);}
+.pulse{width:8px;height:8px;border-radius:50%;}
+.pulse.on{background:var(--green);animation:glow 1.4s infinite;}
+.pulse.off{background:var(--muted);}
+@keyframes glow{0%{box-shadow:0 0 0 0 rgba(63,185,80,.6)}70%{box-shadow:0 0 0 8px rgba(63,185,80,0)}100%{box-shadow:0 0 0 0 rgba(63,185,80,0)}}
+.dash-btns{display:flex;gap:8px;align-items:center;}
+.db{padding:6px 14px;border-radius:6px;font-size:.82rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text);transition:all .2s;}
+.db:hover{background:#ffffff0d;}
+.db.start{background:var(--green);color:#041606;border-color:var(--green);}
+.db.start:hover{background:#4ddb60;}
+.db.stop{background:var(--red);color:#fff;border-color:var(--red);}
+.db.logout{color:var(--muted);}
+.db.logout:hover{border-color:var(--red);color:var(--red);}
+.user-pill{display:flex;align-items:center;gap:7px;padding:4px 12px;background:var(--card);border:1px solid var(--border);border-radius:20px;font-size:.8rem;color:var(--muted);}
+.user-av{width:22px;height:22px;border-radius:50%;background:#1f6feb;display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;color:#fff;}
+
+/* body */
+.dash-body{display:flex;flex:1;overflow:hidden;}
+.dash-main{flex:1;display:flex;flex-direction:column;padding:14px;gap:14px;overflow:hidden;}
+.dash-side{width:256px;border-left:1px solid var(--border);padding:14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;}
+
+/* card */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px;}
+.card-title{font-size:.82rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
+
+/* chart */
+#chart-wrap{height:190px;flex-shrink:0;}
+#chart-canvas{width:100%;height:160px;display:block;}
+
+/* traffic feed */
+#feed-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.feed-head{display:grid;grid-template-columns:85px 115px 1fr 100px 1fr;gap:6px;padding:5px 10px;font-size:.7rem;color:var(--muted);border-bottom:1px solid var(--border);flex-shrink:0;}
+#feed-body{overflow-y:auto;flex:1;}
+.feed-row{display:grid;grid-template-columns:85px 115px 1fr 100px 1fr;gap:6px;padding:7px 10px;border-bottom:1px solid #ffffff05;align-items:center;font-size:.78rem;animation:slideIn .25s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:none}}
+.row-ALLOW{background:linear-gradient(90deg,rgba(63,185,80,.05),transparent);}
+.row-HONEYPOT{background:linear-gradient(90deg,rgba(210,153,34,.05),transparent);}
+.row-BLOCK{background:linear-gradient(90deg,rgba(248,81,73,.05),transparent);}
+.abadge{padding:3px 8px;border-radius:5px;font-size:.7rem;font-weight:700;}
+.a-ALLOW{background:rgba(63,185,80,.12);color:var(--green);}
+.a-HONEYPOT{background:rgba(210,153,34,.12);color:var(--yellow);}
+.a-BLOCK{background:rgba(248,81,73,.12);color:var(--red);}
+.pbar{height:9px;border-radius:4px;background:#0b1114;overflow:hidden;border:1px solid var(--border);}
+.pfill{height:100%;border-radius:4px;transition:width .3s;}
+.empty-msg{padding:24px;text-align:center;color:var(--muted);font-size:.85rem;}
+
+/* stats */
+.metric{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:11px 13px;}
+.metric-label{font-size:.72rem;color:var(--muted);margin-bottom:3px;}
+.metric-value{font-size:1.45rem;font-weight:700;transition:all .3s;}
+
+/* honeypot strip */
+.hp-strip{border-top:1px solid var(--border);padding:8px 14px;flex-shrink:0;background:rgba(255,255,255,.01);}
+.hp-label{font-size:.72rem;font-weight:700;color:var(--muted);margin-bottom:5px;}
+.hp-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;}
+.hp-item{white-space:nowrap;padding:3px 9px;border-radius:5px;font-size:.72rem;font-weight:600;flex-shrink:0;}
+.hp-item.block{background:rgba(248,81,73,.1);color:var(--red);}
+.hp-item.honey{background:rgba(210,153,34,.1);color:var(--yellow);}
+.hp-empty{font-size:.78rem;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════ LANDING ══════════════════════ -->
+<div id="landing">
+  <nav>
+    <div class="nav-logo">
+      <div class="shield-icon">🛡️</div>Smart Tatkal Guardian
+    </div>
+    <ul class="nav-links">
+      <li><a href="#features">How it works</a></li>
+      <li><a href="#evidence">Problem</a></li>
+      <li><a href="#">Docs</a></li>
+    </ul>
+    <div class="nav-cta">
+      <button class="btn-ghost" onclick="openLogin()">Sign in</button>
+      <button class="btn-primary" onclick="openLogin()">Try demo →</button>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-badge"><span class="badge-dot"></span>FAR AWAY 2026 · Team AlgoMinds</div>
+    <h1>Stop bots from stealing<br><span>Tatkal tickets</span></h1>
+    <p>Autonomous agent system that detects bot-driven ticket hoarding in real-time and ensures genuine passengers get fair access.</p>
+    <div class="hero-btns">
+      <button class="btn-big primary" onclick="openLogin()">Launch dashboard →</button>
+      <button class="btn-big secondary" onclick="scrollTo('evidence')">See the problem</button>
+    </div>
+    <div class="stats-row">
+      <div class="stat-item"><div class="stat-num"><span>60B</span></div><div class="stat-label">bot requests blocked by IRCTC (Jul–Dec 2025)</div></div>
+      <div class="stat-item"><div class="stat-num"><span>3.03Cr</span></div><div class="stat-label">suspicious user IDs deactivated in 2025</div></div>
+      <div class="stat-item"><div class="stat-num"><span>94%</span></div><div class="stat-label">genuine success rate with our system</div></div>
+      <div class="stat-item"><div class="stat-num"><span>5min</span></div><div class="stat-label">all Tatkal tickets gone after window opens</div></div>
+    </div>
+  </section>
+
+  <div id="features" class="features">
+    <div class="feat-card"><div class="feat-icon">🤖</div><h3>Bot Probability Scoring</h3><p>Each booking request gets a 0–100 bot probability score based on typing speed, mouse movement, IP patterns, and request velocity.</p></div>
+    <div class="feat-card"><div class="feat-icon">🍯</div><h3>Honeypot Mechanism</h3><p>Suspected bots are shown fake ticket slots. They confirm fake bookings — we log them. After 3 confirmations, permanently blacklisted.</p></div>
+    <div class="feat-card"><div class="feat-icon">⚡</div><h3>Real-time Detection</h3><p>1000 simultaneous booking requests processed in real-time. 800 bots identified and routed. 200 genuine users get priority access.</p></div>
+    <div class="feat-card"><div class="feat-icon">📊</div><h3>Live Monitoring Dashboard</h3><p>Watch the system work in real-time. Color-coded traffic feed, live charts, honeypot activity log, and bot catch rate metrics.</p></div>
+    <div class="feat-card"><div class="feat-icon">🚫</div><h3>Smart Blacklisting</h3><p>Confirmed bot IDs tracked across sessions. Blacklist grows automatically as bots expose themselves through honeypot interactions.</p></div>
+    <div class="feat-card"><div class="feat-icon">🔄</div><h3>Autonomous Agents</h3><p>5 specialized agents working together: Booking Behavior, Bot Scorer, Honeypot, Blacklist Manager, and Fairness Monitor.</p></div>
+  </div>
+
+  <div id="evidence" class="evidence">
+    <h2>The problem is real</h2>
+    <div class="evidence-grid">
+      <div class="evidence-item">Railway Ministry: Jul–Dec 2025 mein 60 billion bot requests block kiye</div>
+      <div class="evidence-item">IRCTC: 3.03 crore suspicious user IDs deactivated in 2025</div>
+      <div class="evidence-item">501 complaints on National Cyber Crime Portal — 4.18 lakh suspicious PNRs</div>
+      <div class="evidence-item">Reddit r/india: "Tatkal mein ek second bhi late hua toh ticket nahi milta — bots le jaate hain"</div>
+    </div>
+  </div>
+
+  <footer class="land-footer">Built for FAR AWAY 2026 Hackathon · Team AlgoMinds · Smart Tatkal Guardian</footer>
+</div>
+
+<!-- ══════════════════════ LOGIN MODAL ══════════════════════ -->
+<div id="modal-overlay" onclick="overlayClick(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeLogin()">✕</button>
+    <div class="modal-logo">
+      <div class="shield-icon" style="width:26px;height:26px;font-size:13px;">🛡️</div>
+      <span>Smart Tatkal Guardian</span>
+    </div>
+    <h2>Sign in</h2>
+    <p class="subtitle">Access the real-time monitoring dashboard</p>
+    <div class="demo-banner">
+      <strong>Demo accounts — click to autofill</strong>
+      <div class="demo-creds">
+        <div class="cred-chip" onclick="fill('admin@tatkal.dev','admin123')"><div class="role">Admin</div><div class="cred">admin@tatkal.dev</div></div>
+        <div class="cred-chip" onclick="fill('viewer@tatkal.dev','viewer123')"><div class="role">Viewer</div><div class="cred">viewer@tatkal.dev</div></div>
+        <div class="cred-chip" onclick="fill('demo@algominds.in','demo2026')"><div class="role">Team AlgoMinds</div><div class="cred">demo@algominds.in</div></div>
+        <div class="cred-chip" onclick="fill('judge@faraway.io','faraway26')"><div class="role">Judge Access</div><div class="cred">judge@faraway.io</div></div>
+      </div>
+    </div>
+    <div class="form-group"><label>Email</label><input type="email" id="em" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="form-group"><label>Password</label><input type="password" id="pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="error-msg" id="err">Invalid credentials. Use one of the demo accounts above.</div>
+    <button class="btn-login" id="login-btn" onclick="doLogin()">Sign in to dashboard</button>
+  </div>
+</div>
+
+<!-- ══════════════════════ DASHBOARD ══════════════════════ -->
+<div id="dashboard">
+  <!-- topbar -->
+  <div class="dash-top">
+    <div class="dash-title">
+      <div class="shield-icon" style="width:26px;height:26px;font-size:13px;">🛡️</div>
+      Smart Tatkal Guardian
+    </div>
+    <div id="live-badge" class="live-badge stopped"><span id="pulse-dot" class="pulse off"></span><span id="badge-txt">DEMO</span></div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="user-pill"><div class="user-av" id="uav">A</div><span id="urole">Admin</span></div>
+      <div class="dash-btns">
+        <button class="db start" id="btn-start" onclick="startSim()">▶ Start</button>
+        <button class="db" id="btn-stop" onclick="stopSim()" style="display:none">⏹ Stop</button>
+        <button class="db" onclick="resetSim()">↺ Reset</button>
+        <button class="db logout" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- body -->
+  <div class="dash-body">
+    <!-- main area -->
+    <div class="dash-main">
+      <!-- chart -->
+      <div class="card" id="chart-wrap">
+        <div class="card-title">📈 Traffic — last 30s &nbsp;<span style="color:var(--red)">■ Bot</span> &nbsp;<span style="color:var(--green)">■ Genuine</span></div>
+        <canvas id="chart-canvas"></canvas>
+      </div>
+      <!-- feed -->
+      <div class="card" id="feed-wrap">
+        <div class="card-title">⚡ Live Traffic Feed</div>
+        <div class="feed-head"><span>Time</span><span>User ID</span><span>Bot Prob</span><span>Action</span><span>Flags</span></div>
+        <div id="feed-body"><div class="empty-msg">Press ▶ Start to begin simulation</div></div>
+      </div>
+    </div>
+
+    <!-- side stats -->
+    <div class="dash-side">
+      <div class="card-title" style="margin-bottom:4px;">📊 Realtime Stats</div>
+      <div class="metric"><div class="metric-label">Total Requests</div><div class="metric-value" id="s-total" style="color:var(--text)">0</div></div>
+      <div class="metric"><div class="metric-label">Genuine Allowed</div><div class="metric-value" id="s-allowed" style="color:var(--green)">0</div></div>
+      <div class="metric"><div class="metric-label">In Honeypot</div><div class="metric-value" id="s-honey" style="color:var(--yellow)">0</div></div>
+      <div class="metric"><div class="metric-label">Blocked (Bot)</div><div class="metric-value" id="s-block" style="color:var(--red)">0</div></div>
+      <div class="metric"><div class="metric-label">Bot Catch Rate</div><div class="metric-value" id="s-bcr" style="color:var(--red)">0%</div></div>
+      <div class="metric"><div class="metric-label">Genuine Success</div><div class="metric-value" id="s-gsr" style="color:var(--green)">0%</div></div>
+    </div>
+  </div>
+
+  <!-- honeypot strip -->
+  <div class="hp-strip">
+    <div class="hp-label">🍯 Honeypot / Blacklist Activity</div>
+    <div class="hp-scroll" id="hp-scroll"><span class="hp-empty">No activity yet…</span></div>
+  </div>
+</div>
+
+<script>
+/* ═══ ACCOUNTS ═══ */
+const ACCOUNTS = {
+  'admin@tatkal.dev':  {pass:'admin123', role:'Admin',     initials:'AD'},
+  'viewer@tatkal.dev': {pass:'viewer123',role:'Viewer',    initials:'VW'},
+  'demo@algominds.in': {pass:'demo2026', role:'AlgoMinds', initials:'AM'},
+  'judge@faraway.io':  {pass:'faraway26',role:'Judge',     initials:'JG'},
+};
+
+/* ═══ NAV ═══ */
+function scrollTo(id){ document.getElementById(id).scrollIntoView({behavior:'smooth'}); }
+function openLogin(){
+  document.getElementById('modal-overlay').classList.add('active');
+  setTimeout(()=>document.getElementById('em').focus(),100);
+}
+function closeLogin(){
+  document.getElementById('modal-overlay').classList.remove('active');
+  document.getElementById('err').classList.remove('show');
+}
+function overlayClick(e){ if(e.target===document.getElementById('modal-overlay')) closeLogin(); }
+function fill(e,p){ document.getElementById('em').value=e; document.getElementById('pw').value=p; document.getElementById('err').classList.remove('show'); }
+function doLogin(){
+  const email=document.getElementById('em').value.trim().toLowerCase();
+  const pass=document.getElementById('pw').value;
+  const btn=document.getElementById('login-btn');
+  document.getElementById('err').classList.remove('show');
+  btn.textContent='Signing in…'; btn.classList.add('loading');
+  setTimeout(()=>{
+    const acc=ACCOUNTS[email];
+    if(acc && acc.pass===pass){
+      closeLogin();
+      document.getElementById('uav').textContent=acc.initials;
+      document.getElementById('urole').textContent=acc.role;
+      document.getElementById('landing').style.display='none';
+      document.getElementById('dashboard').classList.add('active');
+      initChart();
+    } else {
+      document.getElementById('err').classList.add('show');
+      btn.textContent='Sign in to dashboard'; btn.classList.remove('loading');
+      document.getElementById('pw').value=''; document.getElementById('pw').focus();
+    }
+  },500);
+}
+function logout(){
+  stopSim(); resetSim();
+  document.getElementById('dashboard').classList.remove('active');
+  document.getElementById('landing').style.display='flex';
+}
+
+/* ═══ SIMULATION STATE ═══ */
+let simInterval=null, chartInterval=null;
+let stats={total:0,allowed:0,honey:0,block:0};
+let chartData=Array.from({length:30},(_,i)=>({t:Date.now()-((29-i)*1000),bot:0,genuine:0}));
+let recentEvents=[];
+
+function uid(){ return 'USR_'+Math.random().toString(36).slice(2,6).toUpperCase(); }
+function randFlags(){
+  const pool=['RAPID_FIRE','SHARED_IP','NO_MOUSE','PASTE_INPUT','BOT_UA'];
+  const n=Math.random()<.4?1:Math.random()<.2?2:0;
+  if(!n) return [];
+  const out=[];
+  while(out.length<n){ const f=pool[Math.floor(Math.random()*pool.length)]; if(!out.includes(f)) out.push(f); }
+  return out;
+}
+
+function startSim(){
+  if(simInterval) return;
+  document.getElementById('btn-start').style.display='none';
+  document.getElementById('btn-stop').style.display='';
+  const badge=document.getElementById('live-badge');
+  badge.className='live-badge running';
+  document.getElementById('pulse-dot').className='pulse on';
+  document.getElementById('badge-txt').textContent='LIVE';
+  simInterval=setInterval(fireEvent,200);
+}
+function stopSim(){
+  if(!simInterval) return;
+  clearInterval(simInterval); simInterval=null;
+  document.getElementById('btn-start').style.display='';
+  document.getElementById('btn-stop').style.display='none';
+  const badge=document.getElementById('live-badge');
+  badge.className='live-badge stopped';
+  document.getElementById('pulse-dot').className='pulse off';
+  document.getElementById('badge-txt').textContent='DEMO';
+}
+function resetSim(){
+  stopSim();
+  stats={total:0,allowed:0,honey:0,block:0};
+  recentEvents=[];
+  chartData=Array.from({length:30},(_,i)=>({t:Date.now()-((29-i)*1000),bot:0,genuine:0}));
+  updateStats();
+  document.getElementById('feed-body').innerHTML='<div class="empty-msg">Press ▶ Start to begin simulation</div>';
+  document.getElementById('hp-scroll').innerHTML='<span class="hp-empty">No activity yet…</span>';
+  drawChart();
+}
+
+function fireEvent(){
+  const isBot=Math.random()<.8;
+  const action=isBot?(Math.random()<.6?'HONEYPOT':'BLOCK'):'ALLOW';
+  const prob=isBot?(0.6+Math.random()*.4):(Math.random()*.3);
+  const ev={time:Date.now(),user_id:uid(),action,prob:+prob.toFixed(2),flags:randFlags()};
+  // update stats
+  stats.total++;
+  if(action==='ALLOW') stats.allowed++;
+  if(action==='HONEYPOT') stats.honey++;
+  if(action==='BLOCK') stats.block++;
+  updateStats();
+  // track recent
+  recentEvents.unshift(ev);
+  if(recentEvents.length>200) recentEvents.pop();
+  // feed row
+  addFeedRow(ev);
+  // honeypot log
+  if(action==='HONEYPOT' || action==='BLOCK') addHpItem(ev);
+}
+
+function updateStats(){
+  const t=stats.total||1;
+  document.getElementById('s-total').textContent=stats.total;
+  document.getElementById('s-allowed').textContent=stats.allowed+' ('+Math.round(stats.allowed/t*100)+'%)';
+  document.getElementById('s-honey').textContent=stats.honey+' ('+Math.round(stats.honey/t*100)+'%)';
+  document.getElementById('s-block').textContent=stats.block+' ('+Math.round(stats.block/t*100)+'%)';
+  document.getElementById('s-bcr').textContent=Math.round((stats.honey+stats.block)/t*100)+'%';
+  document.getElementById('s-gsr').textContent=Math.round(stats.allowed/t*100)+'%';
+}
+
+function addFeedRow(ev){
+  const body=document.getElementById('feed-body');
+  // remove placeholder
+  const emp=body.querySelector('.empty-msg');
+  if(emp) emp.remove();
+  // cap at 60
+  const rows=body.querySelectorAll('.feed-row');
+  if(rows.length>=60) rows[rows.length-1].remove();
+  const color=ev.action==='ALLOW'?'var(--green)':ev.action==='HONEYPOT'?'var(--yellow)':'var(--red)';
+  const row=document.createElement('div');
+  row.className='feed-row row-'+ev.action;
+  row.innerHTML=`
+    <span style="color:var(--muted);font-size:11px">${new Date(ev.time).toLocaleTimeString()}</span>
+    <span style="font-family:monospace;font-size:11px">${ev.user_id}</span>
+    <div><div class="pbar"><div class="pfill" style="width:${Math.round(ev.prob*100)}%;background:${color}"></div></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${Math.round(ev.prob*100)}%</div></div>
+    <span class="abadge a-${ev.action}">${ev.action}</span>
+    <span style="font-size:11px;color:var(--muted)">${ev.flags.join(', ')}</span>`;
+  body.insertBefore(row,body.firstChild);
+}
+
+function addHpItem(ev){
+  const scr=document.getElementById('hp-scroll');
+  const emp=scr.querySelector('.hp-empty');
+  if(emp) emp.remove();
+  const item=document.createElement('div');
+  const isBlock=ev.action==='BLOCK';
+  item.className='hp-item '+(isBlock?'block':'honey');
+  item.textContent=`[${new Date(ev.time).toLocaleTimeString()}] ${ev.user_id} → ${isBlock?'CONFIRMED BOT ✗':'Shown fake slot'}`;
+  scr.insertBefore(item,scr.firstChild);
+  // cap
+  const items=scr.querySelectorAll('.hp-item');
+  if(items.length>50) items[items.length-1].remove();
+}
+
+/* ═══ CANVAS CHART ═══ */
+function initChart(){
+  drawChart();
+  chartInterval=setInterval(()=>{
+    const now=Date.now();
+    const recent=recentEvents.filter(e=>now-e.time<1000);
+    const bot=recent.filter(e=>e.action!=='ALLOW').length;
+    const genuine=recent.filter(e=>e.action==='ALLOW').length;
+    chartData.shift();
+    chartData.push({t:now,bot,genuine});
+    drawChart();
+  },1000);
+}
+
+function drawChart(){
+  const canvas=document.getElementById('chart-canvas');
+  if(!canvas) return;
+  const wrap=document.getElementById('chart-wrap');
+  canvas.width=wrap.clientWidth-26;
+  canvas.height=160;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  const pad={top:10,right:10,bottom:28,left:32};
+  const iW=W-pad.left-pad.right, iH=H-pad.top-pad.bottom;
+
+  ctx.clearRect(0,0,W,H);
+  // bg
+  ctx.fillStyle='#161b22'; ctx.fillRect(0,0,W,H);
+
+  const maxY=Math.max(8,...chartData.map(d=>d.bot+d.genuine))||8;
+
+  // grid
+  ctx.strokeStyle='#1e252c'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pad.top+iH-(iH/4*i);
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+iW,y); ctx.stroke();
+    ctx.fillStyle='#8b949e'; ctx.font='10px Segoe UI';
+    ctx.fillText(Math.round(maxY/4*i),2,y+4);
+  }
+  // x-axis labels
+  ctx.fillStyle='#8b949e'; ctx.font='10px Segoe UI'; ctx.textAlign='center';
+  for(let i=0;i<chartData.length;i+=5){
+    const x=pad.left+iW*(i/(chartData.length-1));
+    const label=new Date(chartData[i].t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    ctx.fillText(label,x,H-6);
+  }
+
+  // line helper
+  function drawLine(key,color){
+    ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.lineJoin='round';
+    chartData.forEach((d,i)=>{
+      const x=pad.left+iW*(i/(chartData.length-1));
+      const y=pad.top+iH-(iH*(d[key]/maxY));
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  }
+  drawLine('bot','#f85149');
+  drawLine('genuine','#3fb950');
+}
+
+// resize chart on window resize
+window.addEventListener('resize',()=>{ if(document.getElementById('dashboard').classList.contains('active')) drawChart(); });
+</script>
+</body>
+</html>
