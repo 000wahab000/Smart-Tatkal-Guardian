@@ -38,9 +38,16 @@ stats = {
     "passed": 0,  # alias
     "honey": 0,
     "block": 0,
-    "blocked": 0  # alias
+    "blocked": 0,  # alias
+    "captcha": 0
 }
 connected_clients = set()
+
+# Fair queue for genuine users
+import time as _time
+fair_queue: list[dict] = []          # list of {user_id, queued_at, priority}
+QUEUE_WINDOW_SECONDS = 1800          # 30-minute Tatkal window
+QUEUE_THROUGHPUT_PER_SEC = 2         # approx genuine requests processed per second
 
 
 async def broadcast(data: dict):
@@ -55,6 +62,36 @@ async def broadcast(data: dict):
         connected_clients.discard(client)
 
 
+def assign_queue_slot(user_id: str, priority_score: int) -> dict:
+    """Assign a queue position to a genuine user and return slot info."""
+    global fair_queue
+    # Remove stale entries older than 30 minutes
+    now = _time.time()
+    fair_queue = [e for e in fair_queue if now - e["queued_at"] < QUEUE_WINDOW_SECONDS]
+    # Add this user
+    slot = {
+        "user_id": user_id,
+        "queued_at": now,
+        "priority": priority_score
+    }
+    fair_queue.append(slot)
+    # Sort descending by priority so high-priority users are counted first
+    fair_queue.sort(key=lambda x: x["priority"], reverse=True)
+    # Find their position (1-indexed)
+    position = next((i + 1 for i, e in enumerate(fair_queue) if e["user_id"] == user_id), len(fair_queue))
+    # Estimate wait time based on position and throughput
+    wait_seconds = max(0, (position - 1) / max(QUEUE_THROUGHPUT_PER_SEC, 1))
+    if wait_seconds < 60:
+        wait_str = f"~{int(wait_seconds)}s"
+    else:
+        wait_str = f"~{int(wait_seconds // 60)}m {int(wait_seconds % 60)}s"
+    return {
+        "queue_position": position,
+        "estimated_wait": wait_str,
+        "priority_score": priority_score
+    }
+
+
 @app.post("/ingest")
 async def ingest(request: Request):
     data = await request.json()
@@ -63,16 +100,23 @@ async def ingest(request: Request):
 
     # Decision logic
     is_bot = is_blacklisted(user_id)
-    if score_val >= 0.75 and is_bot:
+    _queue_info = None
+    if score_val > 0.80 or (score_val >= 0.75 and is_bot):
         action = "BLOCK"
         action_ui = "BLOCK"
     elif score_val >= 0.65:
         action = "HONEYPOT"
         action_ui = "HONEY"
         maybe_blacklist(user_id)
+    elif score_val >= 0.50:
+        action = "CAPTCHA"
+        action_ui = "CAPTCHA"
     else:
         action = "ALLOW"
         action_ui = "ALLOW"
+        # Compute priority: invert the bot score so lower bot score = higher priority
+        _priority = max(0, 100 - int(score_val * 100))
+        _queue_info = assign_queue_slot(user_id, _priority)
 
     # Build flags
     flags = []
@@ -105,7 +149,10 @@ async def ingest(request: Request):
         "train_id": data.get("train_id", ""),
         "route": f"{data.get('from_station', '')}-{data.get('to_station', '')}",
         "score": int(score_val * 100),
-        "flags": flags
+        "flags": flags,
+        "queue_position": _queue_info["queue_position"] if _queue_info else None,
+        "estimated_wait": _queue_info["estimated_wait"] if _queue_info else None,
+        "priority_score": _queue_info["priority_score"] if _queue_info else None
     }
 
     # Update stats
@@ -115,6 +162,8 @@ async def ingest(request: Request):
         stats["blocked"] += 1
     elif action == "HONEYPOT":
         stats["honey"] += 1
+    elif action == "CAPTCHA":
+        stats["captcha"] = stats.get("captcha", 0) + 1
     else:
         stats["allowed"] += 1
         stats["passed"] += 1
@@ -165,6 +214,19 @@ async def reset_route():
         "passed": 0,
         "honey": 0,
         "block": 0,
-        "blocked": 0
+        "blocked": 0,
+        "captcha": 0
     })
     return {"status": "reset"}
+
+
+@app.get("/queue/stats")
+async def get_queue_stats():
+    """Return current fair queue state."""
+    now = _time.time()
+    active = [e for e in fair_queue if now - e["queued_at"] < QUEUE_WINDOW_SECONDS]
+    return {
+        "queue_length": len(active),
+        "throughput_per_sec": QUEUE_THROUGHPUT_PER_SEC,
+        "entries": active[:20]  # return top 20 for dashboard display
+    }
