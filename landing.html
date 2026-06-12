@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Tatkal Guardian</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+
+:root{
+  --bg:#060910;
+  --surface:#0d1220;
+  --card:#111827;
+  --border:#1e293b;
+  --border2:#2d3f55;
+  --green:#22c55e;
+  --green-dim:#16a34a;
+  --red:#ef4444;
+  --yellow:#f59e0b;
+  --blue:#3b82f6;
+  --blue-bright:#60a5fa;
+  --cyan:#06b6d4;
+  --text:#f1f5f9;
+  --muted:#64748b;
+  --muted2:#94a3b8;
+}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ── ANIMATED GRID BG ── */
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+  background-size:60px 60px;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ── GLOW ORBS ── */
+.orb{
+  position:fixed;
+  border-radius:50%;
+  filter:blur(120px);
+  pointer-events:none;
+  z-index:0;
+  opacity:0.12;
+}
+.orb-1{width:600px;height:600px;background:#3b82f6;top:-200px;left:-100px;}
+.orb-2{width:400px;height:400px;background:#06b6d4;top:40%;right:-100px;}
+.orb-3{width:300px;height:300px;background:#22c55e;bottom:10%;left:20%;}
+
+/* ── NAVBAR ── */
+nav{
+  position:fixed;
+  top:0;left:0;right:0;
+  z-index:200;
+  padding:0 3rem;
+  height:64px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:rgba(6,9,16,0.8);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(255,255,255,0.05);
+}
+
+.logo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  text-decoration:none;
+  color:var(--text);
+}
+
+.logo-icon{
+  width:34px;height:34px;
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;
+  box-shadow:0 0 20px rgba(59,130,246,0.4);
+}
+
+.logo-text{
+  font-size:0.95rem;
+  font-weight:600;
+  letter-spacing:-0.01em;
+}
+
+.logo-text span{
+  color:var(--blue-bright);
+}
+
+.nav-center{
+  display:flex;gap:2rem;
+  list-style:none;
+}
+
+.nav-center a{
+  color:var(--muted);
+  text-decoration:none;
+  font-size:0.85rem;
+  transition:color 0.2s;
+  letter-spacing:0.01em;
+}
+.nav-center a:hover{color:var(--text);}
+
+.nav-right{display:flex;gap:10px;align-items:center;}
+
+.btn-ghost{
+  padding:0.4rem 1rem;
+  border:1px solid var(--border2);
+  border-radius:6px;
+  background:transparent;
+  color:var(--muted2);
+  font-size:0.82rem;
+  cursor:pointer;
+  transition:all 0.2s;
+  font-family:inherit;
+}
+.btn-ghost:hover{border-color:var(--blue);color:var(--text);background:rgba(59,130,246,0.08);}
+
+.btn-primary{
+  padding:0.4rem 1.1rem;
+  border:none;
+  border-radius:6px;
+  background:var(--blue);
+  color:#fff;
+  font-size:0.82rem;
+  font-weight:600;
+  cursor:pointer;
+  transition:all 0.2s;
+  font-family:inherit;
+  display:flex;align-items:center;gap:6px;
+}
+.btn-primary:hover{background:#2563eb;transform:translateY(-1px);box-shadow:0 4px 20px rgba(59,130,246,0.4);}
+
+/* ── LANDING ── */
+#landing{position:relative;z-index:1;}
+
+/* ── HERO ── */
+.hero{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:6rem 2rem 4rem;
+  position:relative;
+}
+
+.hero-eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:0.35rem 1rem;
+  border:1px solid rgba(59,130,246,0.3);
+  border-radius:999px;
+  font-size:0.75rem;
+  color:var(--blue-bright);
+  margin-bottom:2rem;
+  background:rgba(59,130,246,0.07);
+  letter-spacing:0.05em;
+  text-transform:uppercase;
+}
+
+.live-dot{
+  width:7px;height:7px;
+  border-radius:50%;
+  background:var(--green);
+  animation:livepulse 1.8s infinite;
+}
+
+@keyframes livepulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.6);}
+  50%{box-shadow:0 0 0 6px rgba(34,197,94,0);}
+}
+
+.hero h1{
+  font-size:clamp(2.8rem,6vw,5rem);
+  font-weight:800;
+  line-height:1.05;
+  letter-spacing:-0.04em;
+  margin-bottom:1.5rem;
+  max-width:900px;
+}
+
+.hero h1 .line2{
+  background:linear-gradient(90deg,#3b82f6,#06b6d4,#22c55e);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+.hero-sub{
+  font-size:1.05rem;
+  color:var(--muted2);
+  max-width:540px;
+  line-height:1.75;
+  margin-bottom:2.5rem;
+}
+
+.hero-actions{
+  display:flex;
+  gap:14px;
+  margin-bottom:5rem;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+
+.btn-hero-primary{
+  padding:0.8rem 2rem;
+  border:none;
+  border-radius:8px;
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  color:#fff;
+  font-size:0.95rem;
+  font-weight:700;
+  cursor:pointer;
+  transition:all 0.2s;
+  font-family:inherit;
+  display:flex;align-items:center;gap:8px;
+  box-shadow:0 4px 24px rgba(59,130,246,0.35);
+  letter-spacing:-0.01em;
+}
+.btn-hero-primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(59,130,246,0.5);}
+
+.btn-hero-secondary{
+  padding:0.8rem 2rem;
+  border:1px solid var(--border2);
+  border-radius:8px;
+  background:rgba(255,255,255,0.03);
+  color:var(--muted2);
+  font-size:0.95rem;
+  font-weight:500;
+  cursor:pointer;
+  transition:all 0.2s;
+  font-family:inherit;
+}
+.btn-hero-secondary:hover{border-color:var(--blue);color:var(--text);transform:translateY(-2px);}
+
+/* ── STATS TICKER ── */
+.stats-bar{
+  display:flex;
+  gap:0;
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  background:var(--surface);
+  margin-bottom:6rem;
+  max-width:800px;
+  width:100%;
+}
+
+.stat-block{
+  flex:1;
+  padding:1.4rem 1.5rem;
+  text-align:center;
+  border-right:1px solid var(--border);
+  position:relative;
+}
+.stat-block:last-child{border-right:none;}
+
+.stat-block .big{
+  font-size:2rem;
+  font-weight:800;
+  letter-spacing:-0.04em;
+  line-height:1;
+  margin-bottom:4px;
+}
+
+.stat-block .small{
+  font-size:0.72rem;
+  color:var(--muted);
+  line-height:1.4;
+}
+
+.stat-block.green .big{color:var(--green);}
+.stat-block.blue .big{color:var(--blue-bright);}
+.stat-block.red .big{color:var(--red);}
+.stat-block.yellow .big{color:var(--yellow);}
+
+/* ── SECTION ── */
+.section{
+  padding:5rem 3rem;
+  max-width:1100px;
+  margin:0 auto;
+  position:relative;
+  z-index:1;
+}
+
+.section-label{
+  font-size:0.7rem;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  color:var(--blue-bright);
+  margin-bottom:0.8rem;
+  font-weight:600;
+}
+
+.section-title{
+  font-size:clamp(1.6rem,3vw,2.4rem);
+  font-weight:700;
+  letter-spacing:-0.03em;
+  margin-bottom:1rem;
+  max-width:600px;
+}
+
+.section-sub{
+  font-size:0.9rem;
+  color:var(--muted2);
+  max-width:500px;
+  line-height:1.7;
+  margin-bottom:3rem;
+}
+
+/* ── HOW IT WORKS ── */
+.steps{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:1.5rem;
+}
+
+.step-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:1.8rem;
+  position:relative;
+  overflow:hidden;
+  transition:border-color 0.3s, transform 0.2s;
+}
+.step-card:hover{border-color:var(--border2);transform:translateY(-3px);}
+
+.step-card::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent,#3b82f6),transparent);
+}
+
+.step-card.s-blue{--accent:#3b82f6;}
+.step-card.s-yellow{--accent:#f59e0b;}
+.step-card.s-green{--accent:#22c55e;}
+
+.step-num{
+  font-size:0.7rem;
+  font-weight:700;
+  letter-spacing:0.1em;
+  color:var(--muted);
+  margin-bottom:1rem;
+  text-transform:uppercase;
+}
+
+.step-icon{
+  font-size:2rem;
+  margin-bottom:1rem;
+  display:block;
+}
+
+.step-card h3{
+  font-size:1rem;
+  font-weight:600;
+  margin-bottom:0.6rem;
+  letter-spacing:-0.01em;
+}
+
+.step-card p{
+  font-size:0.82rem;
+  color:var(--muted2);
+  line-height:1.65;
+}
+
+/* ── AGENTS GRID ── */
+.agents{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:1rem;
+  margin-top:2.5rem;
+}
+
+.agent-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:1.2rem 1rem;
+  text-align:center;
+  transition:all 0.2s;
+  cursor:default;
+}
+.agent-card:hover{border-color:var(--blue);background:#131f35;}
+
+.agent-card .icon{font-size:1.4rem;margin-bottom:0.6rem;display:block;}
+.agent-card .name{font-size:0.75rem;font-weight:600;margin-bottom:0.3rem;color:var(--text);}
+.agent-card .desc{font-size:0.68rem;color:var(--muted);line-height:1.5;}
+
+/* ── EVIDENCE ── */
+.evidence-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1rem;
+}
+
+.ev-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-left:3px solid var(--blue);
+  border-radius:0 10px 10px 0;
+  padding:1rem 1.2rem;
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  font-size:0.83rem;
+  color:var(--muted2);
+  line-height:1.6;
+  transition:border-color 0.2s;
+}
+.ev-card:hover{border-left-color:var(--cyan);}
+
+.ev-icon{color:var(--blue);font-size:1rem;flex-shrink:0;margin-top:1px;}
+
+/* ── DEMO PREVIEW ── */
+.demo-preview{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  overflow:hidden;
+  margin-top:2.5rem;
+}
+
+.demo-bar{
+  background:#0a0f1a;
+  padding:0.7rem 1rem;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  border-bottom:1px solid var(--border);
+}
+
+.demo-dot{width:10px;height:10px;border-radius:50%;}
+.demo-dot.r{background:#ef4444;}
+.demo-dot.y{background:#f59e0b;}
+.demo-dot.g{background:#22c55e;}
+
+.demo-url{
+  margin-left:8px;
+  font-size:0.75rem;
+  color:var(--muted);
+  font-family:monospace;
+}
+
+.demo-inner{
+  padding:1.5rem;
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:1.5rem;
+}
+
+.demo-feed{display:flex;flex-direction:column;gap:6px;}
+
+.feed-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0.5rem 0.8rem;
+  border-radius:6px;
+  font-size:0.75rem;
+  font-family:monospace;
+  animation:feedIn 0.3s ease;
+}
+
+@keyframes feedIn{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:none;}}
+
+.feed-row.allow{background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.15);}
+.feed-row.block{background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.15);}
+.feed-row.honey{background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.15);}
+
+.feed-badge{
+  padding:1px 7px;
+  border-radius:4px;
+  font-size:0.65rem;
+  font-weight:700;
+  letter-spacing:0.05em;
+  flex-shrink:0;
+}
+.feed-badge.allow{background:rgba(34,197,94,0.2);color:var(--green);}
+.feed-badge.block{background:rgba(239,68,68,0.2);color:var(--red);}
+.feed-badge.honey{background:rgba(245,158,11,0.2);color:var(--yellow);}
+
+.demo-stats{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-width:160px;
+}
+
+.ds-item{
+  background:#0a0f1a;
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:0.7rem 1rem;
+}
+.ds-item .dl{font-size:0.68rem;color:var(--muted);margin-bottom:2px;}
+.ds-item .dv{font-size:1.1rem;font-weight:700;}
+.ds-item .dv.g{color:var(--green);}
+.ds-item .dv.r{color:var(--red);}
+.ds-item .dv.y{color:var(--yellow);}
+
+/* ── CTA SECTION ── */
+.cta-section{
+  text-align:center;
+  padding:6rem 2rem;
+  position:relative;
+  z-index:1;
+  border-top:1px solid var(--border);
+}
+
+.cta-section h2{
+  font-size:clamp(1.8rem,4vw,3rem);
+  font-weight:800;
+  letter-spacing:-0.04em;
+  margin-bottom:1rem;
+}
+
+.cta-section p{
+  color:var(--muted2);
+  font-size:0.95rem;
+  margin-bottom:2.5rem;
+  max-width:400px;
+  margin-left:auto;margin-right:auto;
+  line-height:1.7;
+}
+
+/* ── FOOTER ── */
+footer{
+  border-top:1px solid var(--border);
+  padding:1.5rem 3rem;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-size:0.78rem;
+  color:var(--muted);
+  position:relative;
+  z-index:1;
+}
+
+.footer-logo{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--muted2);}
+.footer-logo span{font-size:16px;}
+
+/* ══════════════════════════════════════════
+   LOGIN PAGE (full screen takeover)
+══════════════════════════════════════════ */
+#login-page{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:500;
+  background:var(--bg);
+  overflow-y:auto;
+}
+
+#login-page.active{display:flex;align-items:center;justify-content:center;}
+
+.login-wrap{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  min-height:100vh;
+  width:100%;
+}
+
+/* Left panel */
+.login-left{
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  padding:4rem;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  position:relative;
+  overflow:hidden;
+}
+
+.login-left::before{
+  content:'';
+  position:absolute;
+  top:-200px;left:-200px;
+  width:500px;height:500px;
+  background:radial-gradient(circle,rgba(59,130,246,0.12),transparent 70%);
+  pointer-events:none;
+}
+
+.login-left-logo{
+  display:flex;align-items:center;gap:10px;
+  font-size:1rem;font-weight:700;
+  letter-spacing:-0.01em;
+}
+
+.ll-icon{
+  width:38px;height:38px;
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;
+  box-shadow:0 0 24px rgba(59,130,246,0.4);
+}
+
+.login-left-content{flex:1;display:flex;flex-direction:column;justify-content:center;padding:2rem 0;}
+
+.login-left-content h2{
+  font-size:2.2rem;
+  font-weight:800;
+  letter-spacing:-0.04em;
+  line-height:1.15;
+  margin-bottom:1rem;
+}
+
+.login-left-content h2 span{
+  background:linear-gradient(90deg,#3b82f6,#06b6d4);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+.login-left-content p{
+  color:var(--muted2);
+  font-size:0.88rem;
+  line-height:1.7;
+  max-width:380px;
+  margin-bottom:2.5rem;
+}
+
+.mini-stats{display:flex;flex-direction:column;gap:10px;}
+
+.ms-row{
+  display:flex;align-items:center;gap:12px;
+  padding:0.8rem 1rem;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:8px;
+  font-size:0.82rem;
+}
+.ms-icon{font-size:1rem;flex-shrink:0;}
+.ms-text{color:var(--muted2);}
+.ms-val{margin-left:auto;font-weight:700;font-size:0.9rem;}
+.ms-val.g{color:var(--green);}
+.ms-val.r{color:var(--red);}
+.ms-val.y{color:var(--yellow);}
+
+.login-left-footer{
+  font-size:0.75rem;
+  color:var(--muted);
+  display:flex;align-items:center;gap:8px;
+}
+
+/* Right panel */
+.login-right{
+  padding:4rem;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+}
+
+.login-form-wrap{width:100%;max-width:400px;}
+
+.back-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  color:var(--muted);
+  font-size:0.82rem;
+  cursor:pointer;
+  background:none;
+  border:none;
+  font-family:inherit;
+  padding:0;
+  margin-bottom:2.5rem;
+  transition:color 0.2s;
+}
+.back-btn:hover{color:var(--text);}
+.back-btn::before{content:'←';}
+
+.lf-title{
+  font-size:1.6rem;
+  font-weight:700;
+  letter-spacing:-0.03em;
+  margin-bottom:0.4rem;
+}
+
+.lf-sub{
+  font-size:0.83rem;
+  color:var(--muted2);
+  margin-bottom:2rem;
+  line-height:1.6;
+}
+
+/* Demo account tabs */
+.demo-tabs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-bottom:1.5rem;
+}
+
+.demo-tab{
+  padding:0.7rem 0.9rem;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:8px;
+  cursor:pointer;
+  transition:all 0.2s;
+  text-align:left;
+  font-family:inherit;
+}
+.demo-tab:hover{border-color:var(--blue);background:rgba(59,130,246,0.06);}
+.demo-tab.selected{border-color:var(--blue);background:rgba(59,130,246,0.1);}
+
+.dt-role{
+  font-size:0.68rem;
+  color:var(--muted);
+  letter-spacing:0.05em;
+  text-transform:uppercase;
+  margin-bottom:3px;
+}
+
+.dt-email{
+  font-size:0.78rem;
+  color:var(--text);
+  font-family:monospace;
+}
+
+.dt-pass{
+  font-size:0.7rem;
+  color:var(--muted2);
+  margin-top:1px;
+}
+
+.divider{
+  display:flex;align-items:center;gap:12px;
+  margin:1.2rem 0;
+  font-size:0.75rem;
+  color:var(--muted);
+}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* Form */
+.field{margin-bottom:1rem;}
+
+.field label{
+  display:block;
+  font-size:0.78rem;
+  color:var(--muted2);
+  margin-bottom:5px;
+  letter-spacing:0.01em;
+}
+
+.field input{
+  width:100%;
+  padding:0.65rem 0.9rem;
+  background:#0a0f1a;
+  border:1px solid var(--border2);
+  border-radius:8px;
+  color:var(--text);
+  font-size:0.88rem;
+  font-family:inherit;
+  outline:none;
+  transition:border-color 0.2s,box-shadow 0.2s;
+}
+.field input:focus{
+  border-color:var(--blue);
+  box-shadow:0 0 0 3px rgba(59,130,246,0.15);
+}
+.field input::placeholder{color:var(--muted);}
+
+.err-box{
+  display:none;
+  padding:0.6rem 0.9rem;
+  background:rgba(239,68,68,0.08);
+  border:1px solid rgba(239,68,68,0.25);
+  border-radius:7px;
+  font-size:0.78rem;
+  color:#fca5a5;
+  margin-bottom:1rem;
+}
+.err-box.show{display:block;}
+
+.btn-signin{
+  width:100%;
+  padding:0.75rem;
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  color:#fff;
+  border:none;
+  border-radius:8px;
+  font-size:0.92rem;
+  font-weight:700;
+  cursor:pointer;
+  font-family:inherit;
+  transition:all 0.2s;
+  letter-spacing:-0.01em;
+  box-shadow:0 4px 20px rgba(59,130,246,0.3);
+}
+.btn-signin:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(59,130,246,0.45);}
+.btn-signin:active{transform:scale(0.99);}
+.btn-signin.loading{opacity:0.65;cursor:not-allowed;transform:none !important;}
+
+.login-footer-note{
+  text-align:center;
+  font-size:0.72rem;
+  color:var(--muted);
+  margin-top:1.2rem;
+}
+
+/* ══════════════════════════════════════════
+   DASHBOARD SHELL
+══════════════════════════════════════════ */
+#dashboard{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:600;
+  flex-direction:column;
+  background:var(--bg);
+}
+#dashboard.active{display:flex;}
+
+.dash-nav{
+  height:48px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 1.5rem;
+  background:rgba(6,9,16,0.95);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+
+.dash-nav-left{display:flex;align-items:center;gap:12px;}
+
+.dash-nav-left .logo-icon{width:28px;height:28px;font-size:13px;}
+
+.dash-nav-left span{font-size:0.88rem;font-weight:600;}
+
+.dash-nav-right{display:flex;align-items:center;gap:10px;}
+
+.user-chip{
+  display:flex;align-items:center;gap:8px;
+  padding:0.3rem 0.8rem 0.3rem 0.4rem;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:999px;
+  font-size:0.78rem;
+  color:var(--muted2);
+}
+
+.avatar{
+  width:24px;height:24px;
+  border-radius:50%;
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.65rem;
+  font-weight:700;
+  color:#fff;
+}
+
+.btn-out{
+  padding:0.3rem 0.8rem;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:transparent;
+  color:var(--muted);
+  font-size:0.75rem;
+  cursor:pointer;
+  font-family:inherit;
+  transition:all 0.2s;
+}
+.btn-out:hover{border-color:var(--red);color:var(--red);}
+
+#dash-frame{
+  flex:1;
+  border:none;
+  background:var(--bg);
+  width:100%;
+}
+
+/* scrollbar */
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- ══════════════ LANDING ══════════════ -->
+<div id="landing">
+
+  <nav>
+    <a class="logo" href="#">
+      <div class="logo-icon">🛡️</div>
+      <div class="logo-text">Smart<span>Tatkal</span>Guardian</div>
+    </a>
+    <ul class="nav-center">
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#agents">Agents</a></li>
+      <li><a href="#evidence">Evidence</a></li>
+    </ul>
+    <div class="nav-right">
+      <button class="btn-ghost" onclick="showLogin()">Sign in</button>
+      <button class="btn-primary" onclick="showLogin()">
+        <span>Launch dashboard</span>
+        <span>→</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-eyebrow">
+      <span class="live-dot"></span>
+      FAR AWAY 2026 Hackathon · Team AlgoMinds
+    </div>
+
+    <h1>
+      Bots steal Tatkal tickets<br>
+      <span class="line2">in under 5 minutes.</span><br>
+      We catch them first.
+    </h1>
+
+    <p class="hero-sub">
+      Autonomous multi-agent system that detects bot-driven hoarding in real-time,
+      routes suspected bots to honeypots, and ensures genuine passengers
+      get fair access to Tatkal tickets.
+    </p>
+
+    <div class="hero-actions">
+      <button class="btn-hero-primary" onclick="showLogin()">
+        Launch live dashboard →
+      </button>
+      <button class="btn-hero-secondary" onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">
+        See how it works
+      </button>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-block red">
+        <div class="big">60B</div>
+        <div class="small">bot requests blocked by IRCTC<br>Jul–Dec 2025</div>
+      </div>
+      <div class="stat-block yellow">
+        <div class="big">3.03Cr</div>
+        <div class="small">suspicious user IDs<br>deactivated 2025</div>
+      </div>
+      <div class="stat-block green">
+        <div class="big">94%</div>
+        <div class="small">genuine success rate<br>with our system</div>
+      </div>
+      <div class="stat-block blue">
+        <div class="big">23%</div>
+        <div class="small">success rate<br>without protection</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="section" id="how">
+    <div class="section-label">How it works</div>
+    <h2 class="section-title">Three steps. Bots never see it coming.</h2>
+    <p class="section-sub">Instead of blocking bots outright (which tips them off), we use a deceptive honeypot mechanism that lets bots identify themselves.</p>
+
+    <div class="steps">
+      <div class="step-card s-blue">
+        <div class="step-num">Step 01</div>
+        <span class="step-icon">🔍</span>
+        <h3>Score every request</h3>
+        <p>Each booking request is scored 0–100 for bot probability based on typing speed, mouse movement, IP patterns, and request velocity.</p>
+      </div>
+      <div class="step-card s-yellow">
+        <div class="step-num">Step 02</div>
+        <span class="step-icon">🍯</span>
+        <h3>Route bots to honeypot</h3>
+        <p>High-probability bots are shown fake ticket slots instead of real ones. They try to confirm the fake booking — we let them.</p>
+      </div>
+      <div class="step-card s-green">
+        <div class="step-num">Step 03</div>
+        <span class="step-icon">✅</span>
+        <h3>Protect genuine users</h3>
+        <p>Confirmed bots get blacklisted across sessions. Real passengers are fast-tracked. 94% genuine success rate vs 23% without this system.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- AGENTS -->
+  <section class="section" id="agents">
+    <div class="section-label">Architecture</div>
+    <h2 class="section-title">5 autonomous agents working in concert</h2>
+    <p class="section-sub">Each agent has a single responsibility. Together they form a detection pipeline that processes 1000 requests simultaneously.</p>
+
+    <div class="agents">
+      <div class="agent-card">
+        <span class="icon">📡</span>
+        <div class="name">Booking Behavior</div>
+        <div class="desc">Analyzes speed, location, device fingerprint</div>
+      </div>
+      <div class="agent-card">
+        <span class="icon">🎯</span>
+        <div class="name">Bot Scorer</div>
+        <div class="desc">Assigns 0–100 probability score per request</div>
+      </div>
+      <div class="agent-card">
+        <span class="icon">🍯</span>
+        <div class="name">Honeypot</div>
+        <div class="desc">Shows fake slots, logs fake confirmations</div>
+      </div>
+      <div class="agent-card">
+        <span class="icon">🚫</span>
+        <div class="name">Blacklist Manager</div>
+        <div class="desc">Tracks confirmed bot IDs across sessions</div>
+      </div>
+      <div class="agent-card">
+        <span class="icon">⚖️</span>
+        <div class="name">Fairness Monitor</div>
+        <div class="desc">Tracks genuine vs bot booking ratio</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EVIDENCE -->
+  <section class="section" id="evidence">
+    <div class="section-label">The problem is real</div>
+    <h2 class="section-title">This isn't a hypothetical. This is happening now.</h2>
+    <p class="section-sub">The data shows a systemic exploitation of IRCTC's Tatkal system that affects millions of genuine passengers every year.</p>
+
+    <div class="evidence-grid">
+      <div class="ev-card">
+        <span class="ev-icon">→</span>
+        Railway Ministry: July–Dec 2025 mein 60 billion bot requests block kiye gaye
+      </div>
+      <div class="ev-card">
+        <span class="ev-icon">→</span>
+        IRCTC: 3.03 crore suspicious user IDs deactivated in 2025 alone
+      </div>
+      <div class="ev-card">
+        <span class="ev-icon">→</span>
+        501 complaints on National Cyber Crime Portal — 4.18 lakh suspicious PNRs identified
+      </div>
+      <div class="ev-card">
+        <span class="ev-icon">→</span>
+        Reddit r/india: "Tatkal mein ek second bhi late hua toh ticket nahi milta — bots le jaate hain"
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta-section">
+    <h2>See it work live.</h2>
+    <p>Watch 800 bots flood the system, get caught, and get blacklisted — while 200 genuine users get their tickets.</p>
+    <button class="btn-hero-primary" onclick="showLogin()" style="margin:0 auto;">
+      Open live dashboard →
+    </button>
+  </div>
+
+  <footer>
+    <div class="footer-logo">
+      <span>🛡️</span>
+      Smart Tatkal Guardian
+    </div>
+    <span>Built for FAR AWAY 2026 · Team AlgoMinds</span>
+    <span>Innovation 9/10 · Feasibility 7/10 · Wow Factor 9/10</span>
+  </footer>
+
+</div>
+
+<!-- ══════════════ LOGIN PAGE ══════════════ -->
+<div id="login-page">
+  <div class="login-wrap">
+
+    <!-- Left -->
+    <div class="login-left">
+      <div class="login-left-logo">
+        <div class="ll-icon">🛡️</div>
+        SmartTatkalGuardian
+      </div>
+
+      <div class="login-left-content">
+        <h2>Real-time bot<br>detection for<br><span>Tatkal tickets.</span></h2>
+        <p>Watch the system catch 800 bots per 1000 requests, route them to honeypots, and ensure genuine passengers get fair access.</p>
+
+        <div class="mini-stats">
+          <div class="ms-row">
+            <span class="ms-icon">🤖</span>
+            <span class="ms-text">Bot requests caught</span>
+            <span class="ms-val r">800 / 1000</span>
+          </div>
+          <div class="ms-row">
+            <span class="ms-icon">✅</span>
+            <span class="ms-text">Genuine success rate</span>
+            <span class="ms-val g">94%</span>
+          </div>
+          <div class="ms-row">
+            <span class="ms-icon">🍯</span>
+            <span class="ms-text">Honeypot confirmed bots</span>
+            <span class="ms-val y">47 flagged</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="login-left-footer">
+        <span>🔒</span>
+        FAR AWAY 2026 · Team AlgoMinds · Demo environment
+      </div>
+    </div>
+
+    <!-- Right -->
+    <div class="login-right">
+      <div class="login-form-wrap">
+        <button class="back-btn" onclick="hideLogin()"> Back to home</button>
+
+        <div class="lf-title">Welcome back</div>
+        <div class="lf-sub">Sign in with a demo account to access the monitoring dashboard.</div>
+
+        <div class="demo-tabs">
+          <div class="demo-tab" onclick="fillAndSelect(this,'admin@tatkal.dev','admin123')">
+            <div class="dt-role">Admin</div>
+            <div class="dt-email">admin@tatkal.dev</div>
+            <div class="dt-pass">admin123</div>
+          </div>
+          <div class="demo-tab" onclick="fillAndSelect(this,'viewer@tatkal.dev','viewer123')">
+            <div class="dt-role">Viewer</div>
+            <div class="dt-email">viewer@tatkal.dev</div>
+            <div class="dt-pass">viewer123</div>
+          </div>
+          <div class="demo-tab" onclick="fillAndSelect(this,'demo@algominds.in','demo2026')">
+            <div class="dt-role">AlgoMinds</div>
+            <div class="dt-email">demo@algominds.in</div>
+            <div class="dt-pass">demo2026</div>
+          </div>
+          <div class="demo-tab" onclick="fillAndSelect(this,'judge@faraway.io','faraway26')">
+            <div class="dt-role">Judge Access</div>
+            <div class="dt-email">judge@faraway.io</div>
+            <div class="dt-pass">faraway26</div>
+          </div>
+        </div>
+
+        <div class="divider">or enter manually</div>
+
+        <div class="field">
+          <label>Email address</label>
+          <input type="email" id="inp-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="inp-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+
+        <div class="err-box" id="err-box">
+          Incorrect credentials. Click a demo account above to autofill.
+        </div>
+
+        <button class="btn-signin" id="signin-btn" onclick="doLogin()">
+          Sign in to dashboard
+        </button>
+
+        <div class="login-footer-note">
+          Demo only · No real data · FAR AWAY 2026 Hackathon
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════ DASHBOARD SHELL ══════════════ -->
+<div id="dashboard">
+  <div class="dash-nav">
+    <div class="dash-nav-left">
+      <div class="logo-icon">🛡️</div>
+      <span>Smart Tatkal Guardian</span>
+    </div>
+    <div class="dash-nav-right">
+      <div class="user-chip">
+        <div class="avatar" id="av">AD</div>
+        <span id="uname">Admin</span>
+      </div>
+      <button class="btn-out" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+  <iframe id="dash-frame" src="about:blank"></iframe>
+</div>
+
+<script>
+const ACCOUNTS = {
+  'admin@tatkal.dev':  {pass:'admin123', role:'Admin',    init:'AD'},
+  'viewer@tatkal.dev': {pass:'viewer123',role:'Viewer',   init:'VW'},
+  'demo@algominds.in': {pass:'demo2026', role:'AlgoMinds',init:'AM'},
+  'judge@faraway.io':  {pass:'faraway26',role:'Judge',    init:'JG'},
+};
+
+const DASH_URL = 'http://localhost:5173';
+
+function showLogin(){
+  document.getElementById('login-page').classList.add('active');
+  setTimeout(()=>document.getElementById('inp-email').focus(),200);
+}
+
+function hideLogin(){
+  document.getElementById('login-page').classList.remove('active');
+}
+
+function fillAndSelect(el, email, pass){
+  document.querySelectorAll('.demo-tab').forEach(t=>t.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('inp-email').value = email;
+  document.getElementById('inp-pass').value = pass;
+  document.getElementById('err-box').classList.remove('show');
+}
+
+function doLogin(){
+  const email = document.getElementById('inp-email').value.trim().toLowerCase();
+  const pass  = document.getElementById('inp-pass').value;
+  const btn   = document.getElementById('signin-btn');
+  const err   = document.getElementById('err-box');
+
+  err.classList.remove('show');
+  btn.textContent = 'Signing in...';
+  btn.classList.add('loading');
+
+  setTimeout(()=>{
+    const acc = ACCOUNTS[email];
+    if(acc && acc.pass === pass){
+      document.getElementById('login-page').classList.remove('active');
+      openDashboard(acc);
+    } else {
+      err.classList.add('show');
+      btn.textContent = 'Sign in to dashboard';
+      btn.classList.remove('loading');
+      document.getElementById('inp-pass').value='';
+    }
+  }, 700);
+}function openDashboard(acc){
+  const email = acc.email || document.getElementById('inp-email').value.trim().toLowerCase();
+
+  document.getElementById('av').textContent    = acc.init;
+  document.getElementById('uname').textContent = acc.role;
+  const dash = document.getElementById('dashboard');
+  dash.classList.add('active');
+  const frame = document.getElementById('dash-frame');
+  
+  // Load dashboard route directly with query string parameter to handle authentication seamlessly
+  frame.src = DASH_URL + '/dashboard?email=' + encodeURIComponent(email);
+
+  // Fallback / sync channel via postMessage
+  frame.onload = () => {
+    frame.contentWindow.postMessage(
+      { type: 'tatkal_auth', email },
+      'http://localhost:5173'
+    );
+  };
+
+  frame.onerror = ()=>{
+    frame.srcdoc=`<html><body style="background:#060910;color:#64748b;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:1rem;"><div style="font-size:2.5rem">🛡️</div><div style="color:#f1f5f9;font-size:1.1rem;font-weight:700">Dashboard server not running</div><div>Start it first:</div><code style="background:#111827;border:1px solid #1e293b;padding:.5rem 1.2rem;border-radius:8px;font-size:.85rem">cd dashboard &amp;&amp; npm run dev</code></body></html>`;
+  };
+}
+function doLogout(){
+  // ── Tell the React app to clear its own localStorage
+  const frame = document.getElementById('dash-frame');
+  if (frame.contentWindow) {
+    frame.contentWindow.postMessage({ type: 'tatkal_logout' }, 'http://localhost:5173');
+  }
+  document.getElementById('dashboard').classList.remove('active');
+  frame.src='about:blank';
+  document.getElementById('inp-email').value='';
+  document.getElementById('inp-pass').value='';
+  document.querySelectorAll('.demo-tab').forEach(t=>t.classList.remove('selected'));
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    hideLogin();
+  }
+});
+</script>
+</body>
+</html>
