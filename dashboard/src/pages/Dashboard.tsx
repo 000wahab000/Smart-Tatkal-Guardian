@@ -4,7 +4,7 @@ import { Shield, LogOut, Play, Square, Activity, Target, Database, Ban, Scale, W
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 
-type RequestType = "ALLOW" | "BLOCK" | "HONEY";
+type RequestType = "ALLOW" | "BLOCK" | "HONEY" | "CAPTCHA";
 
 interface LiveRequest {
   id: string;
@@ -53,17 +53,20 @@ export default function Dashboard() {
   const [isRunning, setIsRunning] = useState(false);
   const [rps, setRps] = useState(10);
   
-  const [stats, setStats] = useState({ total: 0, blocked: 0, passed: 0, honey: 0 });
+  const [stats, setStats] = useState({ total: 0, blocked: 0, passed: 0, honey: 0, captcha: 0 });
   const [requests, setRequests] = useState<LiveRequest[]>([]);
   const [mapDots, setMapDots] = useState<MapDot[]>([]);
   const [activeTab, setActiveTab] = useState<'feed' | 'map' | 'analytics'>('feed');
   const [topIps, setTopIps] = useState<{ ip: string; count: number; region: string }[]>([]);
-  const [blacklist, setBlacklist] = useState<{ip: string, time: string}[]>([]);
+  const [blacklist, setBlacklist] = useState<{ip: string, count: number, last_seen: string}[]>([]);
   const [honeypotLog, setHoneypotLog] = useState<HoneypotEntry[]>([]);
   const pendingHoneypotsRef = useRef<{ userId: string; countdown: number; train_id: string; route: string; timestamp: string }[]>([]);
   const [timeSeriesData, setTimeSeriesData] = useState<{time: string; bots: number; genuine: number}[]>([]);
+  const [heatmapData, setHeatmapData] = useState<number[]>(Array(60).fill(0));
+  const heatmapRef = useRef<number[]>(Array(60).fill(0));
   const currentSecondCounts = useRef({ bots: 0, genuine: 0 });
   const [dataSource, setDataSource] = useState<'ws' | 'mock' | null>(null);
+  const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
     const tatkalUser = localStorage.getItem("tatkal_user");
@@ -85,26 +88,25 @@ export default function Dashboard() {
       total: prev.total + 1,
       blocked: prev.blocked + (type === "BLOCK" ? 1 : 0),
       passed: prev.passed + (type === "ALLOW" ? 1 : 0),
-      honey: prev.honey + (type === "HONEY" ? 1 : 0)
+      honey: prev.honey + (type === "HONEY" ? 1 : 0),
+      captcha: (prev.captcha || 0) + (type === "CAPTCHA" ? 1 : 0)
     }));
 
     setRequests(prev => [data, ...prev].slice(0, 50));
 
     if (type === "BLOCK") {
-      const ipAddr = `103.45.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
-      setBlacklist(prev => [{ ip: ipAddr, time: data.timestamp }, ...prev].slice(0, 10));
-      setTopIps(prev => {
-        const existing = prev.find(item => item.ip === ipAddr);
+      setBlacklist(prev => {
+        const userId = data.user_id || "unknown";
+        const existing = prev.find(e => e.ip === userId);
         if (existing) {
-          return prev.map(item => item.ip === ipAddr ? { ...item, count: item.count + 1 } : item)
-                     .sort((a, b) => b.count - a.count);
-        } else {
-          const regions = ["Maharashtra", "Delhi NCR", "Karnataka", "West Bengal", "Tamil Nadu", "Telangana"];
-          const randomRegion = regions[Math.floor(Math.random() * regions.length)];
-          return [...prev, { ip: ipAddr, count: 1, region: randomRegion }]
-                     .sort((a, b) => b.count - a.count)
-                     .slice(0, 10);
+          return prev
+            .map(e => e.ip === userId ? { ...e, count: e.count + 1, last_seen: data.timestamp } : e)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
         }
+        return [{ ip: userId, count: 1, last_seen: data.timestamp }, ...prev]
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10);
       });
     }
 
@@ -150,10 +152,17 @@ export default function Dashboard() {
       setHoneypotLog(prev => [...entriesToAdd, ...prev].slice(0, 15));
     }
 
-    if (type === "BLOCK" || type === "HONEY") {
+    if (type === "BLOCK" || type === "HONEY" || type === "CAPTCHA") {
       currentSecondCounts.current.bots += 1;
     } else {
       currentSecondCounts.current.genuine += 1;
+    }
+
+    if (type === "BLOCK" || type === "HONEY" || type === "CAPTCHA") {
+      const nowSlot = Math.floor(Date.now() / 1000) % 60;
+      heatmapRef.current = [...heatmapRef.current];
+      heatmapRef.current[nowSlot] = (heatmapRef.current[nowSlot] || 0) + 1;
+      setHeatmapData([...heatmapRef.current]);
     }
 
     // ── Update India Map Dots State ──
@@ -193,6 +202,7 @@ export default function Dashboard() {
     let type: RequestType = "ALLOW";
     if (score >= 85) type = "HONEY";
     else if (score >= 70) type = "BLOCK";
+    else if (score >= 50) type = "CAPTCHA";
 
     const newReq: LiveRequest = {
       id: Math.random().toString(36).substring(2, 9),
@@ -264,7 +274,8 @@ export default function Dashboard() {
               total: data.stats.total || 0,
               blocked: data.stats.blocked || data.stats.block || 0,
               passed: data.stats.passed || data.stats.allowed || 0,
-              honey: data.stats.honey || 0
+              honey: data.stats.honey || 0,
+              captcha: data.stats.captcha || 0
             });
           } else {
             handleEvent(data as LiveRequest);
@@ -358,6 +369,16 @@ export default function Dashboard() {
       .catch(err => console.warn('Simulator offline or unreachable:', err));
   }, []);
 
+  const handleThemeToggle = () => {
+    const next = !isDark;
+    setIsDark(next);
+    if (next) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("tatkal_user");
     setLocation("/");
@@ -405,6 +426,21 @@ export default function Dashboard() {
               <span className="text-[0.6rem] text-muted-foreground leading-tight">Operator</span>
             </div>
           </div>
+          <button
+            onClick={handleThemeToggle}
+            className="p-2 border border-border rounded-lg text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all"
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {isDark ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
+          </button>
           <button 
             onClick={handleLogout}
             className="ml-1 p-2 border border-border rounded-lg text-muted-foreground hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/5 transition-all"
@@ -486,6 +522,7 @@ export default function Dashboard() {
                   <div className="flex gap-1.5">
                     <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-green-500/15 text-green-400 border border-green-500/10">ALLOW</span>
                     <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-red-500/15 text-red-400 border border-red-500/10">BLOCK</span>
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/10">CAPTCHA</span>
                     <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/10">HONEY</span>
                   </div>
                 </div>
@@ -507,15 +544,17 @@ export default function Dashboard() {
                         animate={{ opacity: 1, x: 0, scale: 1 }}
                         transition={{ duration: 0.18, ease: 'easeOut' }}
                         className={`flex items-center gap-3 px-2 py-1.5 rounded-lg border transition-colors ${
-                          req.type === 'ALLOW' ? 'bg-green-500/[0.04] border-green-500/10 hover:bg-green-500/[0.08]' :
-                          req.type === 'BLOCK' ? 'bg-red-500/[0.04] border-red-500/10 hover:bg-red-500/[0.08]' :
+                          req.type === 'ALLOW'    ? 'bg-green-500/[0.04] border-green-500/10 hover:bg-green-500/[0.08]' :
+                          req.type === 'BLOCK'    ? 'bg-red-500/[0.04] border-red-500/10 hover:bg-red-500/[0.08]' :
+                          req.type === 'CAPTCHA'  ? 'bg-blue-500/[0.04] border-blue-500/10 hover:bg-blue-500/[0.08]' :
                           'bg-yellow-500/[0.04] border-yellow-500/10 hover:bg-yellow-500/[0.08]'
                         }`}
                       >
                         <span className="text-muted-foreground/70 w-20 shrink-0 text-[0.7rem]">{req.timestamp}</span>
-                        <span className={`px-1.5 py-0.5 rounded-md text-[0.6rem] font-bold w-12 text-center shrink-0 ${
-                          req.type === 'ALLOW' ? 'bg-green-500/20 text-green-400' :
-                          req.type === 'BLOCK' ? 'bg-red-500/20 text-red-400' :
+                        <span className={`px-1.5 py-0.5 rounded-md text-[0.6rem] font-bold w-14 text-center shrink-0 ${
+                          req.type === 'ALLOW'   ? 'bg-green-500/20 text-green-400' :
+                          req.type === 'BLOCK'   ? 'bg-red-500/20 text-red-400' :
+                          req.type === 'CAPTCHA' ? 'bg-blue-500/20 text-blue-400' :
                           'bg-yellow-500/20 text-yellow-400'
                         }`}>
                           {req.type}
@@ -545,35 +584,103 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Traffic chart */}
-              <div className="h-48 bg-card border border-border rounded-xl p-3.5 flex flex-col shrink-0">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[0.7rem] font-semibold uppercase tracking-widest text-muted-foreground">Live Traffic — Last 30s</span>
-                  <div className="flex items-center gap-3 text-[0.6rem]">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-[2px] rounded-full bg-red-500" />
-                      <span className="text-muted-foreground">Bots</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-[2px] rounded-full bg-green-500 opacity-70" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #22c55e 0, #22c55e 3px, transparent 3px, transparent 5px)' }} />
-                      <span className="text-muted-foreground">Genuine</span>
+              {/* Attack Heatmap */}
+              <div className="h-20 bg-card border border-border rounded-xl p-3 flex flex-col gap-1.5 shrink-0">
+                <span className="text-[0.65rem] font-semibold uppercase tracking-widest text-muted-foreground shrink-0">
+                  Attack Heatmap — Last 60s
+                </span>
+                <div className="flex-1 flex items-end gap-0.5">
+                  {heatmapData.map((val, i) => {
+                    const max = Math.max(...heatmapData, 1);
+                    const pct = val / max;
+                    const bg =
+                      pct === 0 ? 'bg-border/40'
+                      : pct < 0.25 ? 'bg-yellow-500/30'
+                      : pct < 0.5  ? 'bg-orange-500/50'
+                      : pct < 0.75 ? 'bg-red-500/70'
+                      : 'bg-red-500';
+                    const nowSlot = Math.floor(Date.now() / 1000) % 60;
+                    const isNow = i === nowSlot;
+                    return (
+                      <div
+                        key={i}
+                        title={`t-${59 - i}s: ${val} attacks`}
+                        className={`flex-1 rounded-sm transition-all duration-300 ${bg} ${isNow ? 'ring-1 ring-blue-400/60' : ''}`}
+                        style={{ height: `${Math.max(pct * 100, val > 0 ? 15 : 5)}%` }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Traffic chart + Pie chart row */}
+              <div className="flex gap-3 h-48 shrink-0">
+                {/* Line chart — existing */}
+                <div className="flex-[2] bg-card border border-border rounded-xl p-3.5 flex flex-col">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-widest text-muted-foreground">Live Traffic — Last 30s</span>
+                    <div className="flex items-center gap-3 text-[0.6rem]">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-[2px] rounded-full bg-red-500" />
+                        <span className="text-muted-foreground">Bots</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-[2px] rounded-full bg-green-500 opacity-70" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #22c55e 0, #22c55e 3px, transparent 3px, transparent 5px)' }} />
+                        <span className="text-muted-foreground">Genuine</span>
+                      </div>
                     </div>
                   </div>
+                  <div className="flex-1 w-full min-h-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={timeSeriesData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                        <XAxis dataKey="time" stroke="#475569" fontSize={9} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                        <YAxis stroke="#475569" fontSize={9} tickLine={false} axisLine={false} allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '10px', fontSize: '0.7rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
+                          labelStyle={{ color: '#94a3b8', fontSize: '0.65rem', marginBottom: 4 }}
+                        />
+                        <Line type="monotone" dataKey="bots" stroke="#ef4444" strokeWidth={2} dot={false} name="Bot Traffic" animationDuration={300} />
+                        <Line type="monotone" dataKey="genuine" stroke="#22c55e" strokeWidth={2} strokeDasharray="6 3" dot={false} name="Genuine Traffic" animationDuration={300} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
-                <div className="flex-1 w-full min-h-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={timeSeriesData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                      <XAxis dataKey="time" stroke="#475569" fontSize={9} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                      <YAxis stroke="#475569" fontSize={9} tickLine={false} axisLine={false} allowDecimals={false} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '10px', fontSize: '0.7rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
-                        labelStyle={{ color: '#94a3b8', fontSize: '0.65rem', marginBottom: 4 }}
-                      />
-                      <Line type="monotone" dataKey="bots" stroke="#ef4444" strokeWidth={2} dot={false} name="Bot Traffic" animationDuration={300} />
-                      <Line type="monotone" dataKey="genuine" stroke="#22c55e" strokeWidth={2} strokeDasharray="6 3" dot={false} name="Genuine Traffic" animationDuration={300} />
-                    </LineChart>
-                  </ResponsiveContainer>
+
+                {/* Pie chart — Bots vs Humans */}
+                <div className="flex-1 bg-card border border-border rounded-xl p-3.5 flex flex-col">
+                  <span className="text-[0.7rem] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Traffic Split</span>
+                  <div className="flex-1 w-full min-h-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: 'Humans', value: stats.passed || 0 },
+                            { name: 'Bots', value: (stats.blocked || 0) + (stats.honey || 0) },
+                          ]}
+                          cx="50%"
+                          cy="45%"
+                          innerRadius="30%"
+                          outerRadius="55%"
+                          paddingAngle={3}
+                          dataKey="value"
+                          animationDuration={400}
+                        >
+                          <Cell fill="#22c55e" opacity={0.85} />
+                          <Cell fill="#ef4444" opacity={0.85} />
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '0.65rem' }}
+                          formatter={(value: number, name: string) => [value.toLocaleString(), name]}
+                        />
+                        <Legend
+                          iconSize={8}
+                          wrapperStyle={{ fontSize: '0.6rem', paddingTop: '4px' }}
+                          formatter={(value) => <span style={{ color: '#64748b' }}>{value}</span>}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
             </div>
@@ -790,7 +897,7 @@ export default function Dashboard() {
             <div className="flex-1 bg-card border border-border rounded-xl flex flex-col overflow-hidden">
               <div className="px-3 py-2 border-b border-border flex items-center gap-2 shrink-0">
                 <Ban className="w-3 h-3 text-red-400" />
-                <span className="text-[0.65rem] font-semibold uppercase tracking-widest text-muted-foreground">Recent Blacklist</span>
+                <span className="text-[0.65rem] font-semibold uppercase tracking-widest text-muted-foreground">Top 10 Blocked IDs</span>
                 <span className="ml-auto text-[0.55rem] text-muted-foreground/50 font-mono">{blacklist.length} IPs</span>
               </div>
               <div className="flex-1 overflow-y-auto p-2 font-mono text-[0.68rem] flex flex-col gap-0.5 dashboard-scrollbar">
@@ -801,9 +908,11 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   blacklist.map((entry, i) => (
-                    <div key={i} className="flex justify-between items-center px-2 py-1.5 hover:bg-red-500/[0.03] rounded-md transition-colors">
-                      <span className="text-red-400/80">⛔ {entry.ip}</span>
-                      <span className="text-muted-foreground/50 text-[0.6rem]">{entry.time}</span>
+                    <div key={i} className="flex items-center gap-2 px-2 py-1.5 hover:bg-red-500/[0.03] rounded-md transition-colors">
+                      <span className="text-muted-foreground/40 text-[0.6rem] w-4 tabular-nums shrink-0">#{i + 1}</span>
+                      <span className="text-red-400/80 flex-1 truncate">⛔ {entry.ip}</span>
+                      <span className="text-red-400/60 text-[0.6rem] font-bold tabular-nums shrink-0">{entry.count}x</span>
+                      <span className="text-muted-foreground/40 text-[0.55rem] shrink-0">{entry.last_seen}</span>
                     </div>
                   ))
                 )}
