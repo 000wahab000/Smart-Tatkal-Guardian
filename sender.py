@@ -10,9 +10,14 @@ async def send_request(request_dict: dict) -> bool:
     payload.pop("is_bot", None)  # NEVER expose this to other services
 
     # Wrap to match scorer's ScoreRequest schema
+    # IMPORTANT: send the nested behavioral dict, NOT the full profile dict.
+    # The full profile contains train_id, from_station, etc. which are
+    # not behavioral features — sending them bloats the payload and causes
+    # every feature to parse as None (max bot score on every request).
     scorer_payload = {
+        "request_id": payload.get("request_id"),
         "user_id": payload.get("user_id", "USR_UNKNOWN"),
-        "behavioral": payload,
+        "behavioral": payload.get("behavioral", {}),
     }
 
     try:
