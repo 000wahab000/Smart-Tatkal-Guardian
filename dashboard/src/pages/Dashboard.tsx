@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { Shield, LogOut, Play, Square, Activity, Target, Database, Ban, Scale, Wifi, WifiOff, Zap, ShieldAlert, Bug, Users, TrendingUp } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 
 type RequestType = "ALLOW" | "BLOCK" | "HONEY";
@@ -23,6 +23,29 @@ interface HoneypotEntry {
   isConfirmed: boolean;
 }
 
+import IndiaMap, { MapDot } from "@/components/IndiaMap";
+
+const CITY_COORDS: Record<string, [number, number]> = {
+  "MUMBAI":    [19.076, 72.877],
+  "DELHI":     [28.613, 77.209],
+  "PUNE":      [18.520, 73.856],
+  "JAIPUR":    [26.912, 75.787],
+  "AHMEDABAD": [23.022, 72.571],
+  "CHENNAI":   [13.082, 80.270],
+  "KOLKATA":   [22.572, 88.363],
+  "HYDERABAD": [17.385, 78.486]
+};
+
+const getCityFromRoute = (route: string): string => {
+  const src = route.split("-")[0]?.toUpperCase() || "";
+  if (src === "NDLS" || src === "NZM") return "DELHI";
+  if (src === "BCT") return "MUMBAI";
+  if (src === "SBC") return "HYDERABAD";
+  if (src === "HWH") return "KOLKATA";
+  if (src === "MAS") return "CHENNAI";
+  return src;
+};
+
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [user, setUser] = useState<string | null>(null);
@@ -32,6 +55,9 @@ export default function Dashboard() {
   
   const [stats, setStats] = useState({ total: 0, blocked: 0, passed: 0, honey: 0 });
   const [requests, setRequests] = useState<LiveRequest[]>([]);
+  const [mapDots, setMapDots] = useState<MapDot[]>([]);
+  const [activeTab, setActiveTab] = useState<'feed' | 'map' | 'analytics'>('feed');
+  const [topIps, setTopIps] = useState<{ ip: string; count: number; region: string }[]>([]);
   const [blacklist, setBlacklist] = useState<{ip: string, time: string}[]>([]);
   const [honeypotLog, setHoneypotLog] = useState<HoneypotEntry[]>([]);
   const pendingHoneypotsRef = useRef<{ userId: string; countdown: number; train_id: string; route: string; timestamp: string }[]>([]);
@@ -62,10 +88,24 @@ export default function Dashboard() {
       honey: prev.honey + (type === "HONEY" ? 1 : 0)
     }));
 
-    setRequests(prev => [data, ...prev].slice(0, 30));
+    setRequests(prev => [data, ...prev].slice(0, 50));
 
-    if (type === "BLOCK" && Math.random() > 0.5) {
-      setBlacklist(prev => [{ ip: `103.45.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`, time: data.timestamp }, ...prev].slice(0, 10));
+    if (type === "BLOCK") {
+      const ipAddr = `103.45.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+      setBlacklist(prev => [{ ip: ipAddr, time: data.timestamp }, ...prev].slice(0, 10));
+      setTopIps(prev => {
+        const existing = prev.find(item => item.ip === ipAddr);
+        if (existing) {
+          return prev.map(item => item.ip === ipAddr ? { ...item, count: item.count + 1 } : item)
+                     .sort((a, b) => b.count - a.count);
+        } else {
+          const regions = ["Maharashtra", "Delhi NCR", "Karnataka", "West Bengal", "Tamil Nadu", "Telangana"];
+          const randomRegion = regions[Math.floor(Math.random() * regions.length)];
+          return [...prev, { ip: ipAddr, count: 1, region: randomRegion }]
+                     .sort((a, b) => b.count - a.count)
+                     .slice(0, 10);
+        }
+      });
     }
 
     // Process countdowns for any pending honeypots
@@ -114,6 +154,34 @@ export default function Dashboard() {
       currentSecondCounts.current.bots += 1;
     } else {
       currentSecondCounts.current.genuine += 1;
+    }
+
+    // ── Update India Map Dots State ──
+    const city = getCityFromRoute(data.route);
+    const latlng = CITY_COORDS[city];
+    if (latlng) {
+      const isBot = type === "BLOCK" || type === "HONEY";
+      const dotId = data.id || Math.random().toString(36).substring(2, 9);
+      const newDot: MapDot = {
+        id: dotId,
+        latlng,
+        city,
+        isBot,
+        userId: data.user_id,
+        action: type,
+        score: data.score,
+        timestamp: new Date()
+      };
+
+      setMapDots(prev => {
+        const list = [newDot, ...prev];
+        return list.slice(0, 100); // Max 100 dots at once
+      });
+
+      // Dot disappears after 3 seconds (bot) or 5 seconds (human)
+      setTimeout(() => {
+        setMapDots(prev => prev.filter(d => d.id !== dotId));
+      }, isBot ? 3000 : 5000);
     }
   }, []);
 
@@ -253,7 +321,9 @@ export default function Dashboard() {
         const now = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const { bots, genuine } = currentSecondCounts.current;
         currentSecondCounts.current = { bots: 0, genuine: 0 };
-        setTimeSeriesData(prev => [...prev, { time: now, bots, genuine }].slice(-30));
+        const total = bots + genuine;
+        const rate = total > 0 ? Math.round((bots / total) * 100) : 0;
+        setTimeSeriesData(prev => [...prev, { time: now, bots, genuine, rate }].slice(-30));
       }, 1000);
     } else {
       if (timeSeriesRef.current) clearInterval(timeSeriesRef.current);
@@ -381,107 +451,257 @@ export default function Dashboard() {
             })}
           </div>
 
-          {/* Live request feed */}
-          <div className="flex-1 bg-card border border-border rounded-xl flex flex-col overflow-hidden">
-            <div className="px-3.5 py-2.5 border-b border-border bg-card flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {isRunning && <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
-                <span className="text-[0.7rem] font-semibold uppercase tracking-widest text-muted-foreground">Live Request Feed</span>
-                <span className="text-[0.6rem] text-muted-foreground/60 font-mono">{requests.length} entries</span>
-              </div>
-              <div className="flex gap-1.5">
-                <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-green-500/15 text-green-400 border border-green-500/10">ALLOW</span>
-                <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-red-500/15 text-red-400 border border-red-500/10">BLOCK</span>
-                <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/10">HONEY</span>
-              </div>
-            </div>
-            {/* Column headers */}
-            <div className="px-3.5 py-1.5 border-b border-border/50 flex items-center gap-3 text-[0.6rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
-              <span className="w-20 shrink-0">Time</span>
-              <span className="w-12 shrink-0 text-center">Action</span>
-              <span className="w-16">User</span>
-              <span className="w-20">Train</span>
-              <span className="w-20">Route</span>
-              <span className="ml-auto">Score</span>
-            </div>
-            <div className="flex-1 overflow-y-auto px-2 py-1 font-mono text-[0.73rem] flex flex-col gap-1 dashboard-scrollbar">
-              <AnimatePresence initial={false}>
-                {requests.map(req => (
-                  <motion.div
-                    key={req.id}
-                    initial={{ opacity: 0, x: -12, scale: 0.98 }}
-                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                    transition={{ duration: 0.18, ease: 'easeOut' }}
-                    className={`flex items-center gap-3 px-2 py-1.5 rounded-lg border transition-colors ${
-                      req.type === 'ALLOW' ? 'bg-green-500/[0.04] border-green-500/10 hover:bg-green-500/[0.08]' :
-                      req.type === 'BLOCK' ? 'bg-red-500/[0.04] border-red-500/10 hover:bg-red-500/[0.08]' :
-                      'bg-yellow-500/[0.04] border-yellow-500/10 hover:bg-yellow-500/[0.08]'
-                    }`}
-                  >
-                    <span className="text-muted-foreground/70 w-20 shrink-0 text-[0.7rem]">{req.timestamp}</span>
-                    <span className={`px-1.5 py-0.5 rounded-md text-[0.6rem] font-bold w-12 text-center shrink-0 ${
-                      req.type === 'ALLOW' ? 'bg-green-500/20 text-green-400' :
-                      req.type === 'BLOCK' ? 'bg-red-500/20 text-red-400' :
-                      'bg-yellow-500/20 text-yellow-400'
-                    }`}>
-                      {req.type}
-                    </span>
-                    <span className="text-foreground/90 w-16 text-[0.7rem]">{req.user_id}</span>
-                    <span className="text-muted-foreground/70 w-20 text-[0.7rem]">{req.train_id}</span>
-                    <span className="text-muted-foreground/70 w-20 text-[0.7rem]">{req.route}</span>
-                    <span className="ml-auto flex items-center gap-1.5">
-                      <span className={`font-bold text-[0.75rem] tabular-nums ${req.score > 70 ? 'text-red-400' : req.score > 40 ? 'text-yellow-400' : 'text-green-400'}`}>{req.score}</span>
-                      {/* Mini score bar */}
-                      <div className="w-10 h-1.5 rounded-full bg-border overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${req.score > 70 ? 'bg-red-500' : req.score > 40 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                          style={{ width: `${req.score}%` }}
-                        />
-                      </div>
-                    </span>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              {requests.length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground/50 py-8">
-                  <Activity className="w-8 h-8" />
-                  <span className="text-xs">Start simulation to see live requests</span>
-                </div>
-              )}
-            </div>
+          {/* Tab Selector */}
+          <div className="flex border-b border-border shrink-0 gap-6 px-1">
+            {[
+              { id: 'feed', label: 'Live Feed' },
+              { id: 'map', label: 'Attack Map' },
+              { id: 'analytics', label: 'Analytics' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as 'feed' | 'map' | 'analytics')}
+                className={`py-2 text-[0.8rem] font-semibold tracking-wider transition-all duration-200 border-b-2 -mb-[2px] ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-white font-bold'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          {/* Traffic chart */}
-          <div className="h-48 bg-card border border-border rounded-xl p-3.5 flex flex-col shrink-0">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[0.7rem] font-semibold uppercase tracking-widest text-muted-foreground">Live Traffic — Last 30s</span>
-              <div className="flex items-center gap-3 text-[0.6rem]">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-[2px] rounded-full bg-red-500" />
-                  <span className="text-muted-foreground">Bots</span>
+          {/* Tab Content */}
+          {activeTab === 'feed' && (
+            <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-hidden">
+              {/* Live request feed */}
+              <div className="flex-1 bg-card border border-border rounded-xl flex flex-col overflow-hidden">
+                <div className="px-3.5 py-2.5 border-b border-border bg-card flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {isRunning && <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-widest text-muted-foreground">Live Request Feed</span>
+                    <span className="text-[0.6rem] text-muted-foreground/60 font-mono">{requests.length} entries</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-green-500/15 text-green-400 border border-green-500/10">ALLOW</span>
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-red-500/15 text-red-400 border border-red-500/10">BLOCK</span>
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/10">HONEY</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-[2px] rounded-full bg-green-500 opacity-70" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #22c55e 0, #22c55e 3px, transparent 3px, transparent 5px)' }} />
-                  <span className="text-muted-foreground">Genuine</span>
+                {/* Column headers */}
+                <div className="px-3.5 py-1.5 border-b border-border/50 flex items-center gap-3 text-[0.6rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                  <span className="w-20 shrink-0">Time</span>
+                  <span className="w-12 shrink-0 text-center">Action</span>
+                  <span className="w-16">User</span>
+                  <span className="w-20">Train</span>
+                  <span className="w-20">Route</span>
+                  <span className="ml-auto">Score</span>
+                </div>
+                <div className="flex-1 overflow-y-auto px-2 py-1 font-mono text-[0.73rem] flex flex-col gap-1 dashboard-scrollbar">
+                  <AnimatePresence initial={false}>
+                    {requests.map(req => (
+                      <motion.div
+                        key={req.id}
+                        initial={{ opacity: 0, x: -12, scale: 0.98 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        className={`flex items-center gap-3 px-2 py-1.5 rounded-lg border transition-colors ${
+                          req.type === 'ALLOW' ? 'bg-green-500/[0.04] border-green-500/10 hover:bg-green-500/[0.08]' :
+                          req.type === 'BLOCK' ? 'bg-red-500/[0.04] border-red-500/10 hover:bg-red-500/[0.08]' :
+                          'bg-yellow-500/[0.04] border-yellow-500/10 hover:bg-yellow-500/[0.08]'
+                        }`}
+                      >
+                        <span className="text-muted-foreground/70 w-20 shrink-0 text-[0.7rem]">{req.timestamp}</span>
+                        <span className={`px-1.5 py-0.5 rounded-md text-[0.6rem] font-bold w-12 text-center shrink-0 ${
+                          req.type === 'ALLOW' ? 'bg-green-500/20 text-green-400' :
+                          req.type === 'BLOCK' ? 'bg-red-500/20 text-red-400' :
+                          'bg-yellow-500/20 text-yellow-400'
+                        }`}>
+                          {req.type}
+                        </span>
+                        <span className="text-foreground/90 w-16 text-[0.7rem]">{req.user_id}</span>
+                        <span className="text-muted-foreground/70 w-20 text-[0.7rem]">{req.train_id}</span>
+                        <span className="text-muted-foreground/70 w-20 text-[0.7rem]">{req.route}</span>
+                        <span className="ml-auto flex items-center gap-1.5">
+                          <span className={`font-bold text-[0.75rem] tabular-nums ${req.score > 70 ? 'text-red-400' : req.score > 40 ? 'text-yellow-400' : 'text-green-400'}`}>{req.score}</span>
+                          {/* Mini score bar */}
+                          <div className="w-10 h-1.5 rounded-full bg-border overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${req.score > 70 ? 'bg-red-500' : req.score > 40 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                              style={{ width: `${req.score}%` }}
+                            />
+                          </div>
+                        </span>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  {requests.length === 0 && (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground/50 py-8">
+                      <Activity className="w-8 h-8" />
+                      <span className="text-xs">Start simulation to see live requests</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Traffic chart */}
+              <div className="h-48 bg-card border border-border rounded-xl p-3.5 flex flex-col shrink-0">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[0.7rem] font-semibold uppercase tracking-widest text-muted-foreground">Live Traffic — Last 30s</span>
+                  <div className="flex items-center gap-3 text-[0.6rem]">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-[2px] rounded-full bg-red-500" />
+                      <span className="text-muted-foreground">Bots</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-[2px] rounded-full bg-green-500 opacity-70" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #22c55e 0, #22c55e 3px, transparent 3px, transparent 5px)' }} />
+                      <span className="text-muted-foreground">Genuine</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1 w-full min-h-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={timeSeriesData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="time" stroke="#475569" fontSize={9} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                      <YAxis stroke="#475569" fontSize={9} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '10px', fontSize: '0.7rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
+                        labelStyle={{ color: '#94a3b8', fontSize: '0.65rem', marginBottom: 4 }}
+                      />
+                      <Line type="monotone" dataKey="bots" stroke="#ef4444" strokeWidth={2} dot={false} name="Bot Traffic" animationDuration={300} />
+                      <Line type="monotone" dataKey="genuine" stroke="#22c55e" strokeWidth={2} strokeDasharray="6 3" dot={false} name="Genuine Traffic" animationDuration={300} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             </div>
-            <div className="flex-1 w-full min-h-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={timeSeriesData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="time" stroke="#475569" fontSize={9} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                  <YAxis stroke="#475569" fontSize={9} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '10px', fontSize: '0.7rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
-                    labelStyle={{ color: '#94a3b8', fontSize: '0.65rem', marginBottom: 4 }}
-                  />
-                  <Line type="monotone" dataKey="bots" stroke="#ef4444" strokeWidth={2} dot={false} name="Bot Traffic" animationDuration={300} />
-                  <Line type="monotone" dataKey="genuine" stroke="#22c55e" strokeWidth={2} strokeDasharray="6 3" dot={false} name="Genuine Traffic" animationDuration={300} />
-                </LineChart>
-              </ResponsiveContainer>
+          )}
+
+          {activeTab === 'map' && (
+            <div className="h-[500px] w-full shrink-0">
+              <IndiaMap dots={mapDots} center={[22.5, 82.5]} zoom={4.8} />
             </div>
-          </div>
+          )}
+
+          {activeTab === 'analytics' && (
+            <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1 dashboard-scrollbar min-h-0">
+              {/* Upper row: Charts side-by-side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 shrink-0">
+                {/* Bot catch rate line chart */}
+                <div className="bg-card border border-border rounded-xl p-3.5 flex flex-col h-64">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-col">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-widest text-muted-foreground">Bot Catch Rate</span>
+                      <span className="text-[0.55rem] text-muted-foreground/60">Percentage of traffic identified as threats</span>
+                    </div>
+                    {timeSeriesData.length > 0 && (
+                      <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                        {timeSeriesData[timeSeriesData.length - 1].rate}% Current
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 w-full min-h-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={timeSeriesData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                        <XAxis dataKey="time" stroke="#475569" fontSize={9} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                        <YAxis stroke="#475569" fontSize={9} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '10px', fontSize: '0.7rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
+                          labelStyle={{ color: '#94a3b8', fontSize: '0.65rem', marginBottom: 4 }}
+                          formatter={(value) => [`${value}%`, 'Catch Rate']}
+                        />
+                        <Line type="monotone" dataKey="rate" stroke="#3b82f6" strokeWidth={2.5} dot={false} name="Catch Rate" animationDuration={300} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Action distribution donut chart */}
+                <div className="bg-card border border-border rounded-xl p-3.5 flex flex-col h-64">
+                  <div className="flex flex-col mb-2">
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-widest text-muted-foreground">Action Distribution</span>
+                    <span className="text-[0.55rem] text-muted-foreground/60">Breakdown of system intervention decisions</span>
+                  </div>
+                  <div className="relative flex-1 w-full min-h-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '10px', fontSize: '0.7rem' }}
+                        />
+                        <Pie
+                          data={[
+                            { name: 'ALLOW', value: stats.passed, color: '#10b981' },
+                            { name: 'HONEYPOT', value: stats.honey, color: '#eab308' },
+                            { name: 'BLOCK', value: stats.blocked, color: '#ef4444' }
+                          ]}
+                          cx="50%"
+                          cy="45%"
+                          innerRadius={55}
+                          outerRadius={75}
+                          paddingAngle={4}
+                          dataKey="value"
+                        >
+                          {[
+                            { name: 'ALLOW', value: stats.passed, color: '#10b981' },
+                            { name: 'HONEYPOT', value: stats.honey, color: '#eab308' },
+                            { name: 'BLOCK', value: stats.blocked, color: '#ef4444' }
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Legend verticalAlign="bottom" height={36} iconSize={8} iconType="circle" wrapperStyle={{ fontSize: '0.65rem' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ transform: 'translateY(-20px)' }}>
+                      <span className="text-[0.55rem] text-muted-foreground font-semibold uppercase tracking-wider">Total</span>
+                      <span className="text-base font-bold text-foreground tabular-nums">{stats.total}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lower row: Top Flagged IPs List */}
+              <div className="bg-card border border-border rounded-xl flex flex-col overflow-hidden min-h-0">
+                <div className="px-3.5 py-2.5 border-b border-border flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-blue-400" />
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-widest text-muted-foreground">Top Flagged IPs</span>
+                  </div>
+                  <span className="text-[0.6rem] text-muted-foreground/60 font-mono">Ranked by blocked requests count</span>
+                </div>
+                {/* Table headers */}
+                <div className="px-3.5 py-1.5 border-b border-border/50 flex items-center gap-3 text-[0.6rem] font-semibold uppercase tracking-wider text-muted-foreground/60 shrink-0">
+                  <span className="w-10 shrink-0 text-center">Rank</span>
+                  <span className="w-32">IP Address</span>
+                  <span className="w-32">Region</span>
+                  <span className="ml-auto text-right">Block Events</span>
+                </div>
+                <div className="overflow-y-auto px-2 py-1 font-mono text-[0.73rem] flex flex-col gap-1 max-h-60 dashboard-scrollbar">
+                  {topIps.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground/50 py-8">
+                      <ShieldAlert className="w-8 h-8" />
+                      <span className="text-xs">No flagged IP data available yet</span>
+                    </div>
+                  ) : (
+                    topIps.map((ipData, i) => (
+                      <div
+                        key={ipData.ip}
+                        className="flex items-center gap-3 px-2 py-1.5 rounded-lg border border-border/30 bg-card/40 hover:bg-card/80 transition-colors"
+                      >
+                        <span className="w-10 shrink-0 text-center text-muted-foreground/60 font-bold">#{i + 1}</span>
+                        <span className="w-32 text-foreground font-semibold">{ipData.ip}</span>
+                        <span className="w-32 text-muted-foreground/80">{ipData.region}</span>
+                        <span className="ml-auto font-bold text-red-400 text-right tabular-nums">{ipData.count}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── RIGHT COLUMN ─────────────────────────────────────────────── */}
