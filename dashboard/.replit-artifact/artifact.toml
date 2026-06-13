@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Smart Tatkal Guardian"
+version = "1.0.0"
+id = "artifacts/smart-tatkal"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19592
+
+[services.development]
+run = "pnpm --filter @workspace/smart-tatkal run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/smart-tatkal", "run", "build" ]
+publicDir = "artifacts/smart-tatkal/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19592"
+BASE_PATH = "/"

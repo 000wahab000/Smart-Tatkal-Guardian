@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Environment files
+.env
+
+# Dependencies
+node_modules/
+
+# Builds and distributions
+dist/
+*.egg-info/
+
+# System Files
+.DS_Store
+Thumbs.db
